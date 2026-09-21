@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Freelancer Pro</title>
+    <!-- Se actualiza el favicon a un SVG confiable -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%231a2a3a'/%3E%3Cpath d='M150 120 L370 340 L370 512 L150 512 Z' fill='%230d151d' opacity='0.5'/%3E%3Crect x='160' y='120' width='70' height='272' rx='15' fill='%233498db'/%3E%3Crect x='230' y='120' width='130' height='70' rx='15' fill='%2300ffff'/%3E%3Crect x='230' y='221' width='90' height='70' rx='15' fill='%233498db'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%231a2a3a'/%3E%3Cpath d='M150 120 L370 340 L370 512 L150 512 Z' fill='%230d151d' opacity='0.5'/%3E%3Crect x='160' y='120' width='70' height='272' rx='15' fill='%233498db'/%3E%3Crect x='230' y='120' width='130' height='70' rx='15' fill='%2300ffff'/%3E%3Crect x='230' y='221' width='90' height='70' rx='15' fill='%233498db'/%3E%3C/svg%3E">
+    
+    <!-- Librerías Externas -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    
+    <script>
+      Chart.register(ChartDataLabels);
+    </script>
+
+    <style>
+      :root { --primary: #1a2a3a; --accent: #3498db; --bg: #f4f7f6; --success: #2ecc71; --danger: #e74c3c; --warning: #f1c40f; }
+      body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: var(--bg); height: 100vh; position: relative;}
+      
+      /* Sidebar */
+      .sidebar { width: 260px; height: 100vh; background: var(--primary); color: white; position: fixed; z-index: 100; display: none; flex-direction: column; overflow-y:auto;}
+      .sidebar-header { padding: 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; gap: 12px; }
+      .img-nav-container { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent); background: #2c3e50; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+      .img-nav { width: 100%; height: 100%; object-fit: cover; }
+      
+      /* Nuevas clases para títulos del sidebar */
+      .sidebar-category { font-size: 10px; color: #fbc02d; padding: 20px 25px 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+      
+      .menu-item { padding: 14px 25px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9em; transition: 0.3s; display: flex; align-items: center; }
+      .menu-item:hover, .active { background: #34495e; border-left: 5px solid var(--accent); }
+      .menu-item-logout { color: #e74c3c; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto; }
+      .menu-item-logout:hover { background: #34495e; border-left: 5px solid #e74c3c; }
+
+      /* Contenido Principal */
+      .main-content { margin-left: 260px; flex-grow: 1; padding: 30px; display: none; overflow-y: auto; height: 100vh; box-sizing: border-box;}
+      .seccion { display: none; }
+      .img-perfil-der { display: block; margin-left: auto; margin-right: auto; width: 400px; height: 400px; border-radius: 50%; border: 3px solid var(--accent); background: #eee; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover; }
+      
+      /* Tarjetas y Formularios */
+      .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 950px; margin: auto; }
+      #sec-proyectos .card, #sec-cursos .card { max-width: 98% !important; width: 98% !important; }
+      .wide-card { max-width: 98% !important; width: 98% !important; }
+
+      /* ALINEACIÓN CENTRADA PARA ETIQUETAS, INPUTS, SELECTS Y TEXTAREAS */
+      label { display: block; font-weight: bold; font-size: 0.75em; color: #555; margin-bottom: 2px; text-transform: uppercase; text-align: center; }
+      input, textarea, select { width: 100%; padding: 10px; margin: 0 0 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-family: inherit; text-align: center; text-align-last: center; }
+      select option { text-align: center; }
+      
+      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+      .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+      .btn-g { background: #2ecc71; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; font-size: 1.1em; transition: 0.3s;}
+      
+      /* Tablas */
+      .tabla-container { width: 100%; overflow-x: auto; margin-top: 20px; }
+      table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+      th { background: #f8f9fa; border-bottom: 2px solid #dee2e6; padding: 12px 8px; text-align: center; font-size: 0.85em; }
+      td { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: center; color: #1a2a3a !important; font-size: 0.85em; }
+      .input-transparente { width: 100%; border: none; background: transparent; padding: 5px; text-align: center; }
+      .input-transparente:focus { background: #f0f7ff; outline: 1px solid var(--accent); border-radius: 4px; }
+      .monto-container { display: flex; align-items: center; justify-content: center; color: #2e7d32; font-weight: bold; }
+      .monto-container::before { content: "$"; margin-right: 2px; }
+      .input-monto { width: 80px; border: none; background: transparent; font-weight: bold; color: #2e7d32; text-align: center; padding: 0; margin: 0; }
+      .input-monto::-webkit-inner-spin-button, .input-monto::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .select-tabla { border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #fff; width: 100%; min-width: 200px; cursor: pointer; text-align: center; text-align-last: center; }
+      .txt-center { text-align: center; }
+      .estado-celda { padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 800; text-align: center; display: inline-block; min-width: 85px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; }
+      .bg-rojo { background-color: #ff0000 !important; color: white !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .bg-azul { background-color: #00ffff !important; color: black !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .bg-verde { background-color: #2ecc71 !important; color: white !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      
+      /* Dashboard */
+      .dash-card { text-align: center; border-radius: 12px; padding: 20px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+      .dash-card h2 { margin: 10px 0 0; font-size: 2.2em; }
+      .val-cobrado { color: #2e7d32; } 
+      .val-pendiente { color: #d32f2f; }
+      .val-activo { color: #1976d2; }
+      canvas { max-width: 100%; max-height: 200px; margin-top: 10px; }
+
+      /* Modales de Login (Oscuros) */
+      .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+      .modal-box { background-color: #151A23; border: 1px solid #303645; padding: 30px; border-radius: 15px; width: 330px; max-width: 95%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; z-index: 1; }
+      .modal-box h2 { color: #00BFFF; margin-top: 0; font-size: 22px; }
+      .modal-box p { color: #8B98A5; font-size: 13px; margin-bottom: 20px; }
+      .input-label-dark { color: #00BFFF; font-size: 11px; margin-bottom: 4px; display: block; text-transform: uppercase; font-weight: bold; text-align: center; width: 100%; }
+      .modal-input { width: 100%; background-color: #0D1117; color: #FFF; border: 1px solid #303645; padding: 10px; margin-bottom: 12px; border-radius: 8px; text-align: center; font-size: 15px; outline: none; font-family: inherit; }
+      .btn-guardar-dark { width: 100%; background-color: #00BFFF; color: #000; font-weight: bold; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 15px; margin-top: 5px; transition: 0.3s; }
+      .btn-guardar-dark:hover { background-color: #00FF7F; }
+      .btn-cerrar-dark { width: 100%; background-color: transparent; color: #8B98A5; border: 1px solid #303645; padding: 8px; border-radius: 8px; cursor: pointer; margin-top: 8px; transition: 0.3s; }
+      .btn-cerrar-dark:hover { background-color: #1B202D; color: #fff;}
+
+      /* Estilos para Cajas de Suscripción/SaaS */
+      .info-box { flex:1; background: #fff; padding:20px; border-radius:8px; border:1px solid #ddd; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05); min-width: 200px;}
+      .info-box span { font-size: 1.2em; font-weight: 800; color: #3498db; }
+      
+      /* ESTILOS DE BOTONES PARA LA TABLA USUARIOS SAAS */
+      .acciones-cell { display: flex; gap: 6px; justify-content: center; }
+      .btn-icon { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; transition: background-color 0.2s; }
+      .btn-editar { background-color: #3b82f6; color: white; }
+      .btn-editar:hover { background-color: #2563eb; }
+      .btn-eliminar { background-color: #ef4444; color: white; }
+      .btn-eliminar:hover { background-color: #dc2626; }
+
+      /* Control del texto según dispositivo */
+      .txt-arriba { display: none; }
+
+      /* ==========================================
+         ADAPTACIÓN RESPONSIVA PARA MÓVILES Y TABLETAS
+         ========================================== */
+      @media screen and (max-width: 768px) {
+        body {
+          flex-direction: column;
+          height: auto;
+          overflow-x: hidden;
+        }
+
+        .sidebar {
+          width: 100%;
+          height: auto;
+          position: relative;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 0; 
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          align-items: stretch; 
+        }
+
+        .sidebar-header {
+          padding: 10px 15px;
+          border-bottom: none;
+          border-right: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-category {
+          display: none !important;
+        }
+
+        .menu-item {
+          padding: 12px 15px; 
+          box-sizing: border-box; 
+          white-space: nowrap;
+          font-size: 0.8em;
+          border-bottom: none;
+          border-right: 1px solid rgba(255,255,255,0.05);
+          display: flex;
+          align-items: center; 
+          justify-content: center; 
+        }
+
+        .menu-item:hover, .active {
+          border-left: none;
+          border-bottom: 3px solid var(--accent);
+        }
+
+        .menu-item-logout {
+          margin-top: 0;
+          margin-left: auto; 
+          border-top: none;
+          border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .main-content {
+          margin-left: 0 !important;
+          width: 100%;
+          padding: 15px;
+          height: auto;
+        }
+
+        .grid-2, .grid-3 {
+          grid-template-columns: 1fr !important;
+          gap: 10px;
+        }
+
+        .img-perfil-der {
+          width: 220px !important;
+          height: 220px !important;
+        }
+
+        .card, .wide-card {
+          width: 100% !important;
+          padding: 15px;
+          box-sizing: border-box;
+        }
+
+        label {
+          text-align: center !important;
+        }
+
+        input, textarea, select {
+          text-align: center !important;
+          text-align-last: center !important;
+        }
+
+        .tabla-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+          min-width: 650px;
+        }
+
+        .txt-lateral { display: none; }
+        .txt-arriba { display: inline; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- MODAL DE LOGIN CON VIDEO -->
+    <div class="modal-overlay" id="login-modal" style="display: flex;">
+      <video autoplay muted loop playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; pointer-events:none;">
+        <source src="https://github.com/alexanderguerrab/Control-Freelancer-Pro/raw/refs/heads/main/video%20animado.mp4" type="video/mp4">
+      </video>
+      <div class="modal-box" style="width: 380px;">
+        <h2 style="color: #3498db;">🔐 ACCESO FREELANCER</h2>
+        <p>Inicia sesión en tu panel administrativo</p>
+        <label class="input-label-dark">Correo Electrónico</label>
+        <input type="email" id="login-email" class="modal-input" placeholder="tucorreo@gmail.com">
+        <label class="input-label-dark">Contraseña</label>
+        <input type="password" id="login-password" class="modal-input" placeholder="********">
+        
+        <div style="text-align: right; margin-top: -5px; margin-bottom: 12px;">
+          <a href="#" onclick="recuperarPassword(); return false;" style="color: #00BFFF; font-size: 12px; text-decoration: none; transition: 0.3s;" onmouseover="this.style.color='#00FF7F'" onmouseout="this.style.color='#00BFFF'">¿Olvidaste tu contraseña?</a>
+        </div>
+        <button class="btn-guardar-dark" onclick="iniciarSesion()">🚀 Iniciar Sesión</button>
+        <button class="btn-cerrar-dark" onclick="iniciarSesionConGoogle()" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; color: #FFF; background-color: #11151E;">
+          <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+          Iniciar sesión con Google
+        </button>
+        <button class="btn-cerrar-dark" onclick="abrirModalRegistro()" style="color: #00BFFF; border-color: #00BFFF; margin-top: 15px;">Crear Cuenta Nueva</button>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+           <button class="btn-cerrar-dark" onclick="window.open('https://wa.me/584124231008', '_blank')" style="border-color:#00FF7F; color:#00FF7F; flex:1;">📱 WhatsApp</button>
+           <button class="btn-cerrar-dark" onclick="window.open('mailto:alexanderguerra1129@gmail.com', '_blank')" style="border-color:#00BFFF; color:#00BFFF; flex:1;">✉️ Email</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- MODAL REGISTRO NUEVO -->
+    <div class="modal-overlay" id="register-modal">
+      <div class="modal-box">
+        <h2>Crear Cuenta Nueva</h2>
+        <label class="input-label-dark">Correo Electrónico</label>
+        <input type="email" id="reg-email" class="modal-input" placeholder="tucorreo@gmail.com">
+        <label class="input-label-dark">Contraseña</label>
+        <input type="password" id="reg-password" class="modal-input" placeholder="Mínimo 6 caracteres">
+        <p style="color: #8B98A5; font-size: 11px; margin-top: -8px; margin-bottom: 12px; text-align: center;">Usa al menos 6 caracteres</p>
+        <button class="btn-guardar-dark" onclick="crearCuentaFirebase()">Registrarse</button>
+        <button class="btn-cerrar-dark" onclick="cerrarModalRegistro()">Volver al Login</button>
+      </div>
+    </div>
+
+    <!-- NAVEGADOR LATERAL -->
+    <div class="sidebar" id="app-sidebar">
+      <div class="sidebar-header">
+        <div class="img-nav-container">
+          <img id="nav-foto" class="img-nav" style="display:none;">
+        </div>
+        <span style="font-size: 1.1em; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Navegador</span>
+      </div>
+      
+      <div class="menu-item active" id="btn-inicio" onclick="mostrar('inicio')">🏠 Panel de Inicio</div>
+      <div class="menu-item" id="btn-perfil" onclick="mostrar('perfil')">🚀 Mi Perfil</div>
+      <div class="menu-item" id="btn-suscripcion" onclick="mostrar('suscripcion')">💳 Mi Suscripción</div>
+
+      <div class="sidebar-category admin-only" style="display:none;">PANEL DE ADMINISTRADOR</div>
+      <div class="menu-item admin-only" id="btn-finanzas-saas" onclick="mostrar('finanzas-saas')" style="display:none;">💰 Finanzas y Pagos SaaS</div>
+      <div class="menu-item admin-only" id="btn-usuarios-saas" onclick="mostrar('usuarios-saas')" style="display:none;">👩‍💻 Gestión Usuarios SaaS</div>
+
+      <div class="sidebar-category">APLICACIÓN ORIGINARIA</div>
+      <div class="menu-item" id="btn-clientes" onclick="mostrar('clientes')">💼 Registro de Clientes</div>
+      <div class="menu-item" id="btn-visual" onclick="mostrar('visual')">📊 Dashboard Visual</div>
+      <div class="menu-item" id="btn-proyectos" onclick="mostrar('proyectos')">📂 Proyectos y Finanzas</div>
+      <!-- NUEVO MENÚ PARA CURSOS -->
+      <div class="menu-item" id="btn-cursos" onclick="mostrar('cursos')">🎓 Cursos y Suscripciones</div>
+      <div class="menu-item" id="btn-reporte" onclick="mostrar('reporte')">📈 Reporte Mensual</div>
+      <div class="menu-item" id="btn-scripts" onclick="mostrar('scripts')">✉️ Scripts de Cobro</div>
+      
+      <div class="sidebar-category">SOPORTE Y AYUDA</div>
+      <div class="menu-item" onclick="window.open('https://wa.me/584124231008', '_blank')">💬 Soporte WhatsApp</div>
+      <div class="menu-item" onclick="window.open('mailto:alexanderguerra1129@gmail.com', '_blank')">✉️ Soporte Email</div>
+
+      <div class="menu-item menu-item-logout" onclick="cerrarSesionFirebase()">🚪 Cerrar Sesión</div>
+    </div>
+
+    <!-- CONTENIDO DE LA APLICACIÓN -->
+    <div class="main-content" id="app-main">
+      
+      <!-- 1. INICIO -->
+      <div id="sec-inicio" class="seccion" style="display:block; width: 100%; position: relative; clear: both;">
+        <div style="text-align: center; padding: 40px 20px;">
+          <h1 id="titulo-dashboard">🌈 Bienvenido</h1>
+          <div style="margin: 30px auto; width: 300px;">
+            <img id="header-foto" class="img-perfil-der" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cccccc'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" style="width: 300px; height: 300px; border-radius: 50%; object-fit: cover;">
+          </div>
+          <div id="panel-ajustes-exclusivo" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 500px; margin: 0 auto;">
+            <p style="color: #666; margin-bottom: 20px;">Selecciona una opción en el menú <span class="txt-lateral">lateral</span><span class="txt-arriba">de arriba</span> para comenzar.</p>
+            <div id="inyectar-reloj-idioma"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN MI SUSCRIPCIÓN -->
+      <div id="sec-suscripcion" class="seccion">
+        <h1 style="text-align:center;">ESTADO DE MI SUSCRIPCIÓN</h1>
+        <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+          <div class="info-box"><label>PLAN ACTUAL</label><span id="misus-plan">Cargando...</span></div>
+          <div class="info-box"><label>PRÓXIMO PAGO</label><span id="misus-prox" style="color:#fbc02d;">---</span></div>
+          <div class="info-box"><label>ESTADO</label><br><span id="misus-estado" class="estado-celda">---</span></div>
+        </div>
+        <div class="card wide-card">
+          <div style="background:#fbc02d; padding:8px; font-weight:bold; text-align:center;">HISTORIAL DE PAGOS</div>
+          <div class="tabla-container">
+            <table>
+              <thead><tr><th>FECHA DE PAGO</th><th>PERIODO CUBIERTO</th><th>PLAN</th><th>MÉTODO</th><th>RECIBO</th></tr></thead>
+              <tbody id="tabla-misus-historial"><tr><td colspan="5">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GESTIÓN DE USUARIOS SAAS (ADMIN) -->
+      <div id="sec-usuarios-saas" class="seccion">
+        <h1 style="text-align:center;">👩‍💻 ADMINISTRACIÓN DE USUARIOS</h1>
+        <div class="card wide-card">
+          <div class="tabla-container">
+            <table>
+              <thead><tr><th>UID</th><th>CORREO</th><th>TELÉFONO</th><th>FECHA REGISTRO</th><th>ROL</th><th>ESTATUS</th><th>ACCIÓN</th></tr></thead>
+              <tbody id="tabla-admin-usuarios"><tr><td colspan="7">Cargando usuarios...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FINANZAS Y PAGOS SAAS (ADMIN) -->
+      <div id="sec-finanzas-saas" class="seccion">
+        <h1 style="text-align:center; color:#fbc02d;">PANEL DE FINANZAS</h1>
+        <div class="card wide-card">
+          <h3 style="color:#3498db; text-align: center;">⚠️ Clientes Vencidos o Próximos a Vencer</h3>
+          <div class="tabla-container">
+            <table>
+              <thead><tr><th>CLIENTE</th><th>PRÓXIMO PAGO</th><th>ESTADO</th></tr></thead>
+              <tbody id="tabla-admin-vencidos"><tr><td colspan="3">Cargando estatus de clientes...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="card wide-card" style="margin-top:20px;">
+          <h3 style="color:#2ecc71; text-align: center;">💰 GESTIÓN DE PAGOS E INGRESOS</h3>
+          <label>BUSCAR CLIENTE RÁPIDO</label><input type="text" id="busqueda-cli" placeholder="Escribe para filtrar clientes..." onkeyup="filtrarClientesSaaS()">
+          <div class="grid-2">
+            <div><label>SELECCIONAR CLIENTE</label><select id="f-cli-uid"><option value="">-- Cargando --</option></select></div>
+            <div><label>SUSCRIPCIÓN</label><select id="f-cli-plan"><option value="Mensual">Mensual</option><option value="Anual">Anual</option></select></div>
+          </div>
+          <div class="grid-2">
+            <div><label>FECHA BASE (DÍA DE COBRO)</label><input type="date" id="f-cli-fecha"></div>
+            <div><label>PERIODO ABONADO</label><input type="text" id="f-cli-periodo" placeholder="Ej: Septiembre 2026"></div>
+          </div>
+          <div class="grid-2">
+            <div><label>MÉTODO DE PAGO</label><select id="f-cli-metodo"><option value="Zelle">Zelle</option><option value="Binance">Binance</option><option value="PayPal">PayPal</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option><option value="Efectivo">Efectivo</option></select></div>
+            <div><label>COSTO A COBRAR ($)</label><input type="number" id="f-cli-costo" placeholder="Ej: 20"></div>
+          </div>
+          <label>ENLACE DE COMPROBANTE (DRIVE/IMGUR)</label><input type="text" id="f-cli-recibo" placeholder="URL del recibo">
+          <button class="btn-g" onclick="registrarPagoSaaS()">Registrar Pago y Sincronizar Mes</button>
+        </div>
+      </div>
+
+      <!-- 2. PERFIL -->
+      <div id="sec-perfil" class="seccion">
+        <div class="perfil-header"><h1 style="text-align: center;">🚀 Configuración de Perfil</h1></div>
+        <div class="card">
+          <div style="background:#00ffff; padding:5px; text-align: center; font-weight: bold; margin-bottom: 10px;">DATOS DE IDENTIDAD</div>
+          <div class="grid-2"><div><label>Nombre</label><input type="text" id="p-nombre"></div><div><label>Marca</label><input type="text" id="p-marca"></div></div>
+          <div class="grid-2"><div><label>Especialidad</label><input type="text" id="p-espec"></div><div><label>URL Logo (Drive)</label><input type="text" id="p-logo"></div></div>
+          <div style="background:#e0ffff; padding:5px; text-align: center; font-weight: bold; margin-bottom: 10px;">CONFIGURACIÓN NEGOCIO</div>
+          <div class="grid-2"><div><label>Moneda</label><input type="text" id="p-moneda"></div><div><label>Meta Mensual</label><input type="number" id="p-meta"></div></div>
+          <div style="background:#ffd700; padding:5px; text-align: center; font-weight: bold; margin-bottom: 10px;">CONTACTO Y REDES</div>
+          <div class="grid-2"><div><label>Red Social 1</label><input type="text" id="rs1-n"></div><div><label>Enlace 1</label><input type="text" id="rs1-l"></div></div>
+          <div class="grid-2"><div><label>Red Social 2</label><input type="text" id="rs2-n"></div><div><label>Enlace 2</label><input type="text" id="rs2-l"></div></div>
+          <div class="grid-2"><div><label>Red Social 3</label><input type="text" id="rs3-n"></div><div><label>Enlace 3</label><input type="text" id="rs3-l"></div></div>
+          <div style="background:#98fb98; padding:5px; text-align: center; font-weight: bold; margin-bottom: 10px;">PASARELAS DE PAGO</div>
+          <div class="grid-2"><div><label>Pasarela 1</label><input type="text" id="p1-n"></div><div><label>Enlace 1</label><input type="text" id="p1-l"></div></div>
+          <div class="grid-2"><div><label>Pasarela 2</label><input type="text" id="p2-n"></div><div><label>Enlace 2</label><input type="text" id="p2-l"></div></div>
+          <div class="grid-2"><div><label>Pasarela 3</label><input type="text" id="p3-n"></div><div><label>Enlace 3</label><input type="text" id="p3-l"></div></div>
+          <button class="btn-g" onclick="guardarPerfil()">GUARDAR TODOS LOS CAMBIOS</button>
+        </div>
+      </div>
+
+      <!-- 3. CLIENTES -->
+      <div id="sec-clientes" class="seccion">
+        <h1 style="text-align: center;">💼 Registro de Clientes</h1>
+        <div class="card">
+          <div style="background:#ffeb3b; padding:5px; text-align:center; font-weight:bold; margin-bottom: 10px;">NUEVO REGISTRO</div>
+          <div class="grid-2"><div><label>Nombre</label><input type="text" id="c-nombre"></div><div><label>Email</label><input type="text" id="c-email"></div></div>
+          <div class="grid-3"><div><label>Teléfono</label><input type="text" id="c-tel"></div><div><label>ID</label><input type="text" id="c-dni"></div><div><label>País</label><input type="text" id="c-pais"></div></div>
+          <div class="grid-2"><div><label>Fecha Registro</label><input type="date" id="c-fecha"></div><div><label>Drive Link</label><input type="text" id="c-drive"></div></div>
+          <label>Notas</label><input type="text" id="c-notas">
+          <button class="btn-g" style="background:#3498db;" onclick="registrarCliente()">+ GUARDAR CLIENTE</button>
+        </div>
+        <div class="card" style="margin-top:20px; max-width: 100%;">
+          <div class="tabla-container">
+            <table>
+              <thead><tr><th>Cliente</th><th>Email</th><th>Tel</th><th>ID</th><th>País</th><th>Fecha</th><th>Files</th><th>Notas</th><th>Acciones</th></tr></thead>
+              <tbody id="tabla-clientes-cuerpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. DASHBOARD -->
+      <div id="sec-visual" class="seccion">
+        <h1 id="dash-titulo" style="font-weight: 800; text-transform: uppercase; text-align: center;">📊 DASHBOARD</h1>
+        <div class="grid-3">
+          <div class="dash-card" style="border-top: 5px solid #2e7d32;">
+            <label style="color:#2e7d32;">💰 TOTAL COBRADO 💵</label><h2 id="total-cobrado" class="val-cobrado">$0</h2>
+          </div>
+          <div class="dash-card" style="border-top: 5px solid #fbc02d;">
+            <label style="color:#fbc02d;">⏳ FACTURAS PENDIENTES ⏰</label><h2 id="facturas-pendientes" class="val-pendiente" style="color:#d32f2f;">$0</h2>
+          </div>
+          <div class="dash-card" style="border-top: 5px solid #1976d2;">
+            <label style="color:#1976d2;">🚀 PROYECTOS/CURSOS ACTIVOS 🚀</label><h2 id="proyectos-activos" class="val-activo">0</h2>
+          </div>
+        </div>
+        <div style="margin: 20px 0; text-align: center;"><h2 id="mes-display" style="color: #2e7d32; font-weight: 800;"></h2></div>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; justify-content: center;">
+          <div class="card" style="flex: 1; min-width: 200px; text-align: center;"><label>Ingresos por Cliente</label><canvas id="chartDona"></canvas></div>
+          <div class="card" style="flex: 1; min-width: 200px; text-align: center;"><label>Meta Mensual</label><canvas id="chartBarras"></canvas></div>
+          <div class="card" style="flex: 1; min-width: 200px; text-align: center;"><label>Gráfico Meta Mensual %</label><canvas id="chartDona2"></canvas></div>
+          <div class="card" style="flex: 1; min-width: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <label style="width: 100%; text-align: center; margin-bottom: 10px;">Meta Mensual Alcanzada Y Por Alcanzar</label>
+            <div id="tabla-info-meta" style="width: 100%;">
+              <p style="text-align:center; font-size:10px; color:gray;">Cargando datos del motor...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 25px; max-width: 100%;">
+          <div style="background: #fbc02d; color: #000; padding: 5px; font-weight: 800; text-align: center;">PROYECTOS Y CUOTAS PENDIENTES DE COBRO</div>
+          <div class="tabla-container">
+            <table>
+              <thead><tr style="background: #f8f9fa;"><th>PROYECTO / CURSO</th><th>CLIENTE</th><th>MONTO ($)</th></tr></thead>
+              <tbody id="tabla-dash-pendientes"><tr><td colspan="3">Cargando pendientes...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. PROYECTOS Y FINANZAS -->
+      <div id="sec-proyectos" class="seccion">
+        <h1 style="text-align: center;">📂 Proyectos y Finanzas</h1>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #2c3e50;">📊 Gestión de Proyectos Freelance</h3>
+            <button onclick="ejecutarSistemaDeCobroApp()" style="cursor:pointer; background:#1a73e8; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold;">🚀 Ejecutar Cobro de Proyectos</button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr><th>Proyecto</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>F. Rec.</th><th>F. Entr.</th><th>F. Pago</th><th>En Proceso</th><th>Terminado</th><th>Pausado</th><th>Vence Hoy</th><th>Vence 7 Días</th><th>Vence 15 Días</th></tr>
+              </thead>
+              <tbody id="tabla-proyectos-cuerpo"><tr><td colspan="13" style="text-align:center;">Cargando proyectos...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. CURSOS Y SUSCRIPCIONES (NUEVO) -->
+      <div id="sec-cursos" class="seccion">
+        <h1 style="text-align: center;">🎓 Cursos y Suscripciones</h1>
+        <div class="card wide-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #2c3e50;">📊 Gestión de Alumnos y Membresías</h3>
+            <button onclick="ejecutarCobroCursosApp()" style="cursor:pointer; background:#1a73e8; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold;">🚀 Ejecutar Cobro de Cursos</button>
+          </div>
+          <div class="tabla-container">
+            <table>
+              <thead>
+                <tr><th>Curso / Servicio</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Fecha Pago</th><th>Vence Hoy</th><th>Vencido 7 Días</th><th>Vencido 15 Días</th></tr>
+              </thead>
+              <tbody id="tabla-cursos-cuerpo"><tr><td colspan="8" style="text-align:center;">Cargando cursos...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. REPORTE MENSUAL Y ANUAL -->
+      <div id="sec-reporte" class="seccion">
+        <h1 style="font-weight:800; text-align: center;">📈 Reporte Mensual y Anual</h1>
+        <div class="grid-2" style="align-items: stretch;">
+          <div class="card" style="margin: 0; max-width: 100%; border: 2px solid #00ffff; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="background:#00ffff; color:black; text-align:center; font-weight:bold; padding: 12px; font-size: 14px;">REPORTE DE INGRESOS ANUAL</div>
+            <div style="padding: 20px; flex-grow: 1; display: flex; flex-direction: column;">
+              <div style="display:flex; justify-content:space-between; align-items:center; background: #ffff00; padding: 10px; font-weight: bold; border-radius: 4px;">
+                <label style="margin:0; color:black;">AÑO FISCAL</label>
+                <select id="sel-anio-reporte" onchange="cargarReporteAnual()" style="width:120px; padding:5px; margin:0; border: 1px solid #ccc;">
+                  <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+                </select>
+              </div>
+              <table style="margin-top:15px; font-size:12px; border: 1px solid #ddd;">
+                <thead><tr style="background:#00ffff; color:black;"><th style="width:25%; border-right:1px solid #ddd;">MES</th><th style="width:30%; border-right:1px solid #ddd;">INGRESOS</th><th style="width:45%;">ESTADO VISUAL</th></tr></thead>
+                <tbody id="tabla-reporte-anual"></tbody>
+                <tfoot><tr style="background:#2ecc71; color:black; font-weight:bold; font-size:14px; border-top: 2px solid #27ae60;"><td style="padding: 15px 5px; border-right:1px solid #27ae60;">TOTAL DEL AÑO</td><td id="total-anio-txt" colspan="2" style="text-align:center; font-size:18px;">$0.00</td></tr></tfoot>
+              </table>
+              <div style="margin-top:20px; background: #ffff00; padding: 15px; border-radius: 4px; border: 1px solid #e5e500; flex-grow: 1; display: flex; align-items: center;"><canvas id="chartReporteAnual" style="max-height: 250px; width: 100%;"></canvas></div>
+            </div>
+          </div>
+          <div class="card" style="margin: 0; max-width: 100%; border: 2px solid #ff00ff; padding: 0; overflow: hidden; background: #00ffff; display: flex; flex-direction: column;">
+            <div style="background:#ff00ff; color:white; text-align:center; font-weight:bold; padding: 12px; font-size: 14px;">REPORTE POR CLIENTE</div>
+            <div style="padding: 20px; display: flex; flex-direction: column; flex-grow: 1;">
+              <div class="grid-2" style="gap: 10px; margin-bottom: 20px;">
+                <div style="background: #ff00ff; padding: 5px; text-align: center; font-weight: bold; color: white;">AÑO<select id="sel-anio-cliente" onchange="cargarReporteClientes()" style="width:90%; padding:5px; margin-top:5px; color:black;"><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option></select></div>
+                <div style="background: #ff00ff; padding: 5px; text-align: center; font-weight: bold; color: white;">MES<select id="sel-mes-cliente" onchange="cargarReporteClientes()" style="width:90%; padding:5px; margin-top:5px; color:black;"><option value="ENERO">Enero</option><option value="FEBRERO">Febrero</option><option value="MARZO">Marzo</option><option value="ABRIL">Abril</option><option value="MAYO" selected>Mayo</option><option value="JUNIO">Junio</option><option value="JULIO">Julio</option><option value="AGOSTO">Agosto</option><option value="SEPTIEMBRE">Septiembre</option><option value="OCTUBRE">Octubre</option><option value="NOVIEMBRE">Noviembre</option><option value="DICIEMBRE">Diciembre</option></select></div>
+              </div>
+              <div style="padding: 10px; display: flex; justify-content: center; flex-grow: 1; align-items: center; min-height: 250px;"><canvas id="chartReporteClientes" style="max-height: 100%; width: 100%;"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. SCRIPTS DE COBRO -->
+      <div id="sec-scripts" class="seccion">
+        <h1 style="text-align: center;">✉️ Scripts de Cobro</h1>
+        <div class="card">
+          <div style="background:#ffeb3b; color:#000; text-align:center; font-weight:bold; padding:10px; border-radius:6px; margin-bottom:10px;">CONFIGURACIÓN DE MENSAJES</div>
+          <p style="text-align: center; margin-bottom: 20px; font-size: 12px;">Variables permitidas: <b>[Nombre]</b>, <b>[Proyecto]</b> (También se usa para el Curso), <b>[Monto]</b></p>
+          <label>Plantilla 1: Recordatorio (Vence Hoy)</label>
+          <textarea id="script-0" rows="5"></textarea>
+          <label>Plantilla 2: Recordatorio (Vencido 7 Días)</label>
+          <textarea id="script-7" rows="5"></textarea>
+          <label>Plantilla 3: Recordatorio (Vencido 15 Días)</label>
+          <textarea id="script-15" rows="5"></textarea>
+          <button class="btn-g" onclick="guardarScripts()">💾 GUARDAR SCRIPTS</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SCRIPT DE CONTROL Y CONEXIÓN ROBUSTA -->
+    <script>
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTCvknKS-fMd9bFFJfHkYf51c-wS_a40NzQrmy0fX_DxYFjvhg3nBQumQpdCWUaAiL/exec";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCiDrP1I8aFqX0G0_AtLHAvprD8Toet-SY",
+        authDomain: "control-freelancer-pro.firebaseapp.com",
+        projectId: "control-freelancer-pro",
+        storageBucket: "control-freelancer-pro.firebasestorage.app",
+        messagingSenderId: "297651589505",
+        appId: "1:297651589505:web:8be07b973cb4bf60ee9880" 
+      };
+      
+      firebase.initializeApp(firebaseConfig);
+      let currentUserUid = null;
+      let currentUserEmail = null;
+      let appIsAdmin = false;
+
+      function llamarBackend(action, datos, callback, intentos = 3) {
+        if (intentos === 3) {
+          Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+        }
+        
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: action, userId: currentUserUid, email: currentUserEmail, datos: datos })
+        })
+        .then(response => { if (!response.ok) throw new Error("Error de red"); return response.json(); })
+        .then(result => {
+          Swal.close();
+          if (result.error) { 
+            Swal.fire("Error del Servidor", result.error, "error"); 
+            restaurarPantallaFallo();
+            return; 
+          }
+          if (callback) callback(result);
+        })
+        .catch(err => {
+          if (intentos > 1) {
+            console.warn(`Reintentando petición (${action}). Quedan ${intentos - 1} intentos...`);
+            setTimeout(() => { llamarBackend(action, datos, callback, intentos - 1); }, 1200);
+          } else {
+            Swal.close();
+            console.error("Detalle del error:", err);
+            Swal.fire("Error de Conexión", "Revisa los permisos de Google Apps Script o tu URL de implementación.", "error");
+            restaurarPantallaFallo();
+          }
+        });
+      }
+
+      function restaurarPantallaFallo() {
+        if (document.getElementById('app-main').style.display === 'none' || document.getElementById('app-main').style.display === '') {
+           cerrarSesionFirebase();
+        }
+      }
+
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          currentUserUid = user.uid;
+          currentUserEmail = user.email;
+          document.getElementById('login-modal').style.display = 'none';
+          document.getElementById('register-modal').style.display = 'none';
+          
+          llamarBackend('verificarAccesoUsuario', {}, function(res) {
+             if(res.estado !== 'Autorizado') {
+               Swal.fire({
+                 title: 'Acceso Restringido',
+                 text: 'Tu cuenta se encuentra (' + res.estado + '). Por favor contacta al administrador para que autorice tu acceso.',
+                 icon: 'warning'
+               }).then(() => { firebase.auth().signOut(); });
+               return; 
+             }
+             
+             appIsAdmin = res.isAdmin;
+             document.querySelectorAll('.admin-only').forEach(el => { el.style.display = appIsAdmin ? '' : 'none'; });
+
+             document.getElementById('app-sidebar').style.display = 'flex';
+             document.getElementById('app-main').style.display = 'block';
+             prepararInicio(); 
+             actualizarReloj(); 
+             cargarDatos(); 
+             mostrar('inicio');
+          });
+        } else {
+          currentUserUid = null;
+          currentUserEmail = null;
+          appIsAdmin = false;
+          document.getElementById('app-sidebar').style.display = 'none';
+          document.getElementById('app-main').style.display = 'none';
+          document.getElementById('login-modal').style.display = 'flex';
+        }
+      });
+
+      function iniciarSesion() {
+        let email = document.getElementById('login-email').value;
+        let pass = document.getElementById('login-password').value;
+        if(!email || !pass) { Swal.fire("Error", "Ingresa correo y contraseña", "error"); return; }
+        firebase.auth().signInWithEmailAndPassword(email, pass).catch(e => Swal.fire("Error", e.message, "error"));
+      }
+      function iniciarSesionConGoogle() {
+        let provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(e => Swal.fire("Error", e.message, "error"));
+      }
+      function abrirModalRegistro() { document.getElementById('login-modal').style.display = 'none'; document.getElementById('register-modal').style.display = 'flex'; }
+      function cerrarModalRegistro() { document.getElementById('register-modal').style.display = 'none'; document.getElementById('login-modal').style.display = 'flex'; }
+      function crearCuentaFirebase() {
+        let email = document.getElementById('reg-email').value; let pass = document.getElementById('reg-password').value;
+        if(!email || !pass) return;
+        firebase.auth().createUserWithEmailAndPassword(email, pass).then(() => cerrarModalRegistro()).catch(e => Swal.fire("Error", e.message, "error"));
+      }
+      function recuperarPassword() {
+        let email = document.getElementById('login-email').value;
+        if (!email) { Swal.fire("Atención", "Ingresa tu correo electrónico primero.", "info"); return; }
+        firebase.auth().sendPasswordResetEmail(email).then(() => Swal.fire("Enviado", "Revisa tu bandeja.", "success")).catch(e => Swal.fire("Error", e.message, "error"));
+      }
+      function cerrarSesionFirebase() { firebase.auth().signOut(); }
+
+      function mostrar(id) {
+        document.querySelectorAll('.seccion').forEach(s => s.style.display = 'none');
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        document.getElementById('sec-' + id).style.display = 'block';
+        if(document.getElementById('btn-' + id)) document.getElementById('btn-' + id).classList.add('active');
+        
+        if(id === 'perfil') cargarDatos();
+        if(id === 'clientes') cargarClientes();
+        if(id === 'visual') cargarDashboard();
+        if(id === 'proyectos') cargarProyectos();
+        if(id === 'cursos') cargarCursos();
+        if(id === 'scripts') cargarScripts();
+        if(id === 'reporte') { cargarReporteAnual(); cargarReporteClientes(); }
+        
+        if(id === 'suscripcion') cargarMiSuscripcion();
+        if(id === 'usuarios-saas' && appIsAdmin) cargarUsuariosSaaS();
+        if(id === 'finanzas-saas' && appIsAdmin) cargarFinanzasSaaS();
+      }
+
+      function prepararInicio() {
+        const contenedor = document.getElementById('inyectar-reloj-idioma');
+        if (contenedor) {
+          contenedor.innerHTML = `<div style="display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
+              <div><small style="display:block; font-weight:bold; color:#999; font-size:10px;">IDIOMA</small><select id="p-idioma" style="padding:5px; border-radius:4px; border:1px solid #ddd; background:white; text-align:center;"><option value="es">Español 🇪🇸</option><option value="en">English 🇺🇸</option></select></div>
+              <div><small style="display:block; font-weight:bold; color:#999; font-size:10px;">HORA ACTUAL</small><div id="reloj-digital" style="font-weight:bold; color:#333; margin-top:5px;"></div></div>
+            </div>`;
+        }
+      }
+
+      function actualizarReloj() {
+        const ahora = new Date();
+        const el = document.getElementById('reloj-digital');
+        if(el) el.innerText = ahora.toLocaleDateString('es-ES') + " " + ahora.toLocaleTimeString('es-ES');
+      }
+      setInterval(actualizarReloj, 1000);
+
+      function cargarMiSuscripcion() {
+        llamarBackend('obtenerMiSuscripcion', {}, function(res) {
+          let st = res.estado;
+          document.getElementById('misus-plan').innerText = st.plan;
+          document.getElementById('misus-prox').innerText = st.proxPago;
+          let celdaEst = document.getElementById('misus-estado');
+          celdaEst.innerText = st.estado;
+          if (st.estado.includes("Vencido")) celdaEst.className = 'estado-celda bg-rojo';
+          else if (st.estado === "Al día") celdaEst.className = 'estado-celda bg-verde';
+          else celdaEst.className = 'estado-celda bg-azul';
+          
+          let tabla = document.getElementById('tabla-misus-historial');
+          if(res.historial.length === 0) {
+            tabla.innerHTML = '<tr><td colspan="5">No hay pagos registrados en tu historial.</td></tr>';
+          } else {
+            tabla.innerHTML = res.historial.map(h => `<tr><td>${h.fecha}</td><td>${h.periodo}</td><td>${h.plan}</td><td>${h.metodo}</td><td><a href="${h.recibo}" target="_blank">🧾 Ver Recibo</a></td></tr>`).join('');
+          }
+        });
+      }
+
+      function cargarUsuariosSaaS() {
+        llamarBackend('obtenerUsuariosSaaS', {}, function(res) {
+          document.getElementById('tabla-admin-usuarios').innerHTML = res.map(u => `<tr>
+            <td style="font-size:10px;">${u.uid}</td><td>${u.correo}</td><td>${u.telefono}</td><td>${u.fecha}</td>
+            <td><select id="rol-${u.fila}"><option ${u.rol==='Cliente'?'selected':''}>Cliente</option><option ${u.rol==='Administrador'?'selected':''}>Administrador</option></select></td>
+            <td><select id="est-${u.fila}"><option ${u.estatus==='Pendiente'?'selected':''}>Pendiente</option><option ${u.estatus==='Autorizado'?'selected':''}>Autorizado</option><option ${u.estatus==='Bloqueado'?'selected':''}>Bloqueado</option></select></td>
+            <td class="acciones-cell"><button class="btn-icon btn-editar" title="Editar" onclick="editarUsuarioSaaS(${u.fila})">✏️ Editar</button><button class="btn-icon btn-eliminar" title="Eliminar" onclick="eliminarUsuarioSaaS(${u.fila})">🗑️ Eliminar</button></td>
+          </tr>`).join('');
+        });
+      }
+
+      function editarUsuarioSaaS(fila) {
+        let rol = document.getElementById('rol-'+fila).value;
+        let estatus = document.getElementById('est-'+fila).value;
+        llamarBackend('actualizarUsuarioSaaS', { fila: fila, rol: rol, estatus: estatus }, function(r) { Swal.fire('Éxito', r, 'success'); });
+      }
+
+      function eliminarUsuarioSaaS(fila) {
+        Swal.fire({ title: '¿Estás seguro?', text: "Esta acción eliminará al usuario. No se puede revertir.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' })
+        .then((result) => { if (result.isConfirmed) { llamarBackend('eliminarUsuarioSaaS', { fila: fila }, function(r) { Swal.fire('Eliminado', r, 'success'); cargarUsuariosSaaS(); }); } });
+      }
+
+      let cliSaaSBackup = [];
+      function cargarFinanzasSaaS() {
+        llamarBackend('obtenerDatosFinanzasSaaS', {}, function(res) {
+          cliSaaSBackup = res;
+          let opts = '<option value="">-- Selecciona un Cliente --</option>';
+          let trs = '';
+          res.forEach(c => {
+            opts += `<option value="${c.uid}">${c.correo}</option>`;
+            let estClase = c.suscripcion.estado.includes("Vencido") ? 'bg-rojo' : (c.suscripcion.estado === "Al día" ? 'bg-verde' : 'bg-azul');
+            trs += `<tr><td>${c.correo}</td><td>${c.suscripcion.proxPago}</td><td><span class="estado-celda ${estClase}">${c.suscripcion.estado}</span></td></tr>`;
+          });
+          document.getElementById('f-cli-uid').innerHTML = opts;
+          document.getElementById('tabla-admin-vencidos').innerHTML = trs || '<tr><td colspan="3">Todos los clientes están al día.</td></tr>';
+        });
+      }
+
+      function filtrarClientesSaaS() {
+        let text = document.getElementById('busqueda-cli').value.toLowerCase();
+        let filtrados = cliSaaSBackup.filter(c => c.correo.toLowerCase().includes(text));
+        document.getElementById('f-cli-uid').innerHTML = '<option value="">-- Selecciona un Cliente --</option>' + filtrados.map(c => `<option value="${c.uid}">${c.correo}</option>`).join('');
+      }
+
+      function registrarPagoSaaS() {
+        let datos = {
+          uid: document.getElementById('f-cli-uid').value, plan: document.getElementById('f-cli-plan').value,
+          fecha: document.getElementById('f-cli-fecha').value, periodo: document.getElementById('f-cli-periodo').value,
+          metodo: document.getElementById('f-cli-metodo').value, costo: document.getElementById('f-cli-costo').value, recibo: document.getElementById('f-cli-recibo').value
+        };
+        if(!datos.uid || !datos.fecha || !datos.costo) { Swal.fire('Atención', 'Selecciona el cliente, fecha base y costo.', 'warning'); return; }
+        
+        llamarBackend('registrarPagoSaaS', datos, function(r) {
+          Swal.fire('¡Pago Exitoso!', r, 'success');
+          document.getElementById('f-cli-fecha').value = ""; document.getElementById('f-cli-periodo').value = ""; document.getElementById('f-cli-recibo').value = "";
+          cargarFinanzasSaaS(); 
+        });
+      }
+
+      function cargarDatos() {
+        llamarBackend('obtenerDatosPerfil', {}, function(d) {
+          document.getElementById('p-nombre').value = d.nombre || ""; document.getElementById('p-marca').value = d.marca || "";
+          document.getElementById('p-espec').value = d.especialidad || ""; document.getElementById('p-logo').value = d.logoUrl || "";
+          document.getElementById('p-moneda').value = d.moneda || ""; document.getElementById('p-meta').value = d.meta || "";
+          const campos = ['rs1-n', 'rs1-l', 'rs2-n', 'rs2-l', 'rs3-n', 'rs3-l', 'p1-n', 'p1-l', 'p2-n', 'p2-l', 'p3-n', 'p3-l'];
+          campos.forEach(id => { let key = id.replace('-','_'); if(document.getElementById(id)) document.getElementById(id).value = d[key] || ""; });
+          if (d.logoUrl) {
+            document.getElementById('nav-foto').src = d.logoUrl; document.getElementById('header-foto').src = d.logoUrl;
+            document.getElementById('nav-foto').style.display = 'block'; document.getElementById('header-foto').style.display = 'block';
+          }
+        });
+      }
+
+      function guardarPerfil() {
+        const d = {
+          nombre: document.getElementById('p-nombre').value, marca: document.getElementById('p-marca').value, especialidad: document.getElementById('p-espec').value,
+          logoUrl: document.getElementById('p-logo').value, moneda: document.getElementById('p-moneda').value, meta: document.getElementById('p-meta').value,
+          rs1_n: document.getElementById('rs1-n').value, rs1_l: document.getElementById('rs1-l').value,
+          rs2_n: document.getElementById('rs2-n').value, rs2_l: document.getElementById('rs2-l').value,
+          rs3_n: document.getElementById('rs3-n').value, rs3_l: document.getElementById('rs3-l').value,
+          p1_n: document.getElementById('p1-n').value, p1_l: document.getElementById('p1-l').value,
+          p2_n: document.getElementById('p2-n').value, p2_l: document.getElementById('p2-l').value,
+          p3_n: document.getElementById('p3-n').value, p3_l: document.getElementById('p3-l').value
+        };
+        llamarBackend('actualizarDatosPerfilCompleto', d, function(r) { Swal.fire('¡Éxito!', r, 'success'); cargarDatos(); });
+      }
+
+      function registrarCliente() {
+        const c = {
+          nombre: document.getElementById('c-nombre').value, email: document.getElementById('c-email').value,
+          tel: document.getElementById('c-tel').value, dni: document.getElementById('c-dni').value,
+          pais: document.getElementById('c-pais').value, fecha: document.getElementById('c-fecha').value,
+          drive: document.getElementById('c-drive').value, notas: document.getElementById('c-notas').value
+        };
+        if(!c.nombre) { Swal.fire('Error', 'Nombre obligatorio', 'error'); return; }
+        llamarBackend('guardarNuevoCliente', c, function(r) { Swal.fire('¡Listo!', r, 'success'); document.querySelectorAll('#sec-clientes input').forEach(i => i.value = ""); cargarClientes(); });
+      }
+
+      function cargarClientes() {
+        llamarBackend('obtenerListaClientes', {}, function(data) {
+          const cuerpo = document.getElementById('tabla-clientes-cuerpo');
+          cuerpo.innerHTML = data.map(f => `<tr><td style="font-weight:bold;">${f[0]}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td><td>${f[4]}</td><td>${f[5]}</td><td><a href="${f[6]}" target="_blank">📂 Ver</a></td><td>${f[7]}</td><td style="text-align:center;"><button onclick="confirmarEliminacion('${f[3]}')" style="cursor:pointer; background:none; border:none; font-size:16px;">🗑️</button></td></tr>`).join('') || "<tr><td colspan='9'>No hay datos</td></tr>";
+        });
+      }
+
+      function confirmarEliminacion(dni) {
+        Swal.fire({ title: '¿Eliminar cliente?', text: "DNI: " + dni, icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, borrar' })
+        .then((result) => { if (result.isConfirmed) llamarBackend('eliminarClienteServidor', {dni: dni}, function(r) { Swal.fire('Borrado', r, 'success'); cargarClientes(); }); });
+      }
+
+      function cargarScripts() {
+        llamarBackend('obtenerScripts', {}, function(d) {
+          if(d) {
+            document.getElementById('script-0').value = d.s0 || "";
+            document.getElementById('script-7').value = d.s7 || "";
+            document.getElementById('script-15').value = d.s15 || "";
+          }
+        });
+      }
+
+      function guardarScripts() {
+        const s = { s0: document.getElementById('script-0').value, s7: document.getElementById('script-7').value, s15: document.getElementById('script-15').value };
+        llamarBackend('actualizarScripts', s, function(r) { Swal.fire('¡Éxito!', r, 'success'); });
+      }
+
+      function cargarDashboard() {
+        llamarBackend('obtenerDatosDashboard', {}, function(res) {
+            document.getElementById('mes-display').innerText = res.metricas.mes;
+            document.getElementById('total-cobrado').innerText = "$" + res.metricas.totalCobrado.toLocaleString();
+            document.getElementById('facturas-pendientes').innerText = "$" + res.metricas.facturasPendientes.toLocaleString();
+            document.getElementById('proyectos-activos').innerText = res.metricas.proyectosActivos;
+
+            const comDataL = { color: '#000000', textStrokeColor: '#ffffff', textStrokeWidth: 3, font: { weight: 'bold', size: 12 }, formatter: (value) => { if (!value || value === 0) return ""; return "$" + value.toLocaleString(); }, anchor: 'center', align: 'center' };
+
+            if (window.c1) window.c1.destroy();
+            window.c1 = new Chart(document.getElementById('chartDona'), { 
+              type: 'doughnut', data: { labels: res.g1.labels, datasets: [{ data: res.g1.valores, backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6'] }] }, 
+              options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: comDataL } } 
+            });
+
+            if (window.c2) window.c2.destroy();
+            window.c2 = new Chart(document.getElementById('chartBarras'), { 
+              type: 'bar', data: { labels: ['Cobrado', 'Por cobrar'], datasets: [{ data: res.g2.valores, backgroundColor: ['#ffff00', '#ff00ff'] }] }, 
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { color: '#000000', anchor: 'end', align: 'top', offset: 5, font: { weight: 'bold', size: 13 }, formatter: (value) => { if (!value || value === 0) return ""; return "$" + value.toLocaleString(); } } } } 
+            });
+
+            if (window.c3) window.c3.destroy();
+            window.c3 = new Chart(document.getElementById('chartDona2'), { 
+              type: 'doughnut', data: { labels: ['Alcanzado', 'Por alcanzar'], datasets: [{ data: res.g3.valores, backgroundColor: ['#2ecc71', '#e74c3c'] }] }, 
+              options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: comDataL } } 
+            });
+
+            if (res.g3 && res.g3.infoExtra) {
+              const info = res.g3.infoExtra;
+              const iluminado = "text-shadow: -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff, 0px 0px 4px #fff;";
+              let tablaHTML = `<div style="width:100%; height: 100%; display: flex; flex-direction: column; font-family: sans-serif; font-size:11px; border-radius: 5px; overflow: hidden; border: 1px solid #ccc; background: white;">
+                  <div style="background:#f9d423; color:black; text-align:center; padding:15px; font-weight:bold; border-bottom: 1px solid #ccc; flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px;">META MENSUAL: ${info.metaTotal}</div>
+                  <div style="display:flex; text-align:center; font-weight:bold; color:black; flex: 1;">
+                    <div style="flex:1; background:#2ecc71; padding:15px; border-right: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; ${iluminado}">ALCANZADO: <br> <span style="font-size: 15px;">${info.alcanzado}</span></div>
+                    <div style="flex:1; background:#e74c3c; padding:15px; display: flex; flex-direction: column; align-items: center; justify-content: center; ${iluminado}">POR ALCANZAR: <br> <span style="font-size: 15px;">${info.porAlcanzar}</span></div>
+                  </div></div>`;
+              if (info.mensajeExtra && info.mensajeExtra.trim() !== "") { tablaHTML += `<div style="background:#f9d423; color:black; text-align:center; padding:8px; font-weight:bold; border-top: 1px solid #ccc; font-size:11px;">${info.mensajeExtra}</div>`; }
+              document.getElementById('tabla-info-meta').innerHTML = tablaHTML;
+            }
+
+            document.getElementById('tabla-dash-pendientes').innerHTML = res.proyectos.map(pro => `<tr><td>${pro[0]}</td><td>${pro[1]}</td><td style="font-weight:bold; color:#d32f2f;">$${pro[2].toLocaleString()}</td></tr>`).join('');
+        });
+      }
+
+      function cargarProyectos() {
+        llamarBackend('obtenerDatosProyectos', {}, function(res) {
+          const { proyectos, clientes } = res;
+          let pReales = proyectos.filter(p => p[0] !== "" && p[0] !== null);
+          for(let i=0; i<5; i++) { pReales.push(["", "", "", false, "", "", "", false, false, false, "", "", ""]); }
+          document.getElementById('tabla-proyectos-cuerpo').innerHTML = pReales.map((p, index) => {
+            let opciones = `<option value="">-- Cliente --</option>` + clientes.map(c => `<option value="${c}" ${c === p[1] ? 'selected' : ''}>${c}</option>`).join('');
+            const crEq = (v) => (!v || v === "" || v === "---") ? `<div class="estado-celda">---</div>` : `<div class="estado-celda ${v.includes("VENCIDO")?'bg-rojo':'bg-azul'}">${v}</div>`;
+            return `<tr>
+              <td><input type="text" value="${p[0]}" onblur="editarProyecto(${index}, 'proyecto', this.value)" class="input-transparente" placeholder="Proyecto..."></td>
+              <td><select onchange="editarProyecto(${index}, 'cliente', this.value)" class="select-tabla">${opciones}</select></td>
+              <td><div class="monto-container"><input type="number" value="${p[2]}" onblur="editarProyecto(${index}, 'monto', this.value)" class="input-monto"></div></td>
+              <td><input type="checkbox" ${p[3] ? 'checked' : ''} onchange="editarProyecto(${index}, 'cobrado', this.checked)"></td>
+              <td><input type="date" value="${p[4] || ''}" onchange="editarProyecto(${index}, 'f_rec', this.value)" class="input-transparente" style="font-size:10px;"></td>
+              <td><input type="date" value="${p[5] || ''}" onchange="editarProyecto(${index}, 'f_entr', this.value)" class="input-transparente" style="font-size:10px;"></td>
+              <td><input type="date" value="${p[6] || ''}" onchange="editarProyecto(${index}, 'f_pago', this.value)" class="input-transparente" style="font-size:10px;"></td>
+              <td><input type="checkbox" ${p[7] ? 'checked' : ''} onchange="editarProyecto(${index}, 'en_proceso', this.checked)"></td>
+              <td><input type="checkbox" ${p[8] ? 'checked' : ''} onchange="editarProyecto(${index}, 'terminado', this.checked)"></td>
+              <td><input type="checkbox" ${p[9] ? 'checked' : ''} onchange="editarProyecto(${index}, 'pausado', this.checked)"></td>
+              <td>${crEq(p[10])}</td><td>${crEq(p[11])}</td><td>${crEq(p[12])}</td>
+            </tr>`;
+          }).join('');
+        });
+      }
+
+      function editarProyecto(index, tipo, valor) {
+        llamarBackend('guardarCambioProyecto', { index: index, tipo: tipo, valor: valor }, function(r) {
+          if (['cobrado', 'en_proceso', 'cliente', 'f_pago'].includes(tipo)) { cargarProyectos(); cargarDashboard(); }
+        });
+      }
+
+      function cargarCursos() {
+        llamarBackend('obtenerDatosCursos', {}, function(res) {
+          const { cursos, clientes } = res;
+          let cReales = cursos.filter(c => c[0] !== "" && c[0] !== null);
+          for(let i=0; i<5; i++) { cReales.push(["", "", "", false, "", "", "", ""]); }
+          document.getElementById('tabla-cursos-cuerpo').innerHTML = cReales.map((c, index) => {
+            let opciones = `<option value="">-- Cliente --</option>` + clientes.map(cli => `<option value="${cli}" ${cli === c[1] ? 'selected' : ''}>${cli}</option>`).join('');
+            const crEq = (v) => (!v || v === "" || v === "---") ? `<div class="estado-celda">---</div>` : `<div class="estado-celda ${v.includes("VENCIDO")?'bg-rojo':'bg-azul'}">${v}</div>`;
+            return `<tr>
+              <td><input type="text" value="${c[0]}" onblur="editarCurso(${index}, 'curso', this.value)" class="input-transparente" placeholder="Nombre del Curso/Servicio..."></td>
+              <td><select onchange="editarCurso(${index}, 'cliente', this.value)" class="select-tabla">${opciones}</select></td>
+              <td><div class="monto-container"><input type="number" value="${c[2]}" onblur="editarCurso(${index}, 'monto', this.value)" class="input-monto"></div></td>
+              <td><input type="checkbox" ${c[3] ? 'checked' : ''} onchange="editarCurso(${index}, 'cobrado', this.checked)"></td>
+              <td><input type="date" value="${c[4] || ''}" onchange="editarCurso(${index}, 'fecha_pago', this.value)" class="input-transparente" style="font-size:10px;"></td>
+              <td>${crEq(c[5])}</td><td>${crEq(c[6])}</td><td>${crEq(c[7])}</td>
+            </tr>`;
+          }).join('');
+        });
+      }
+
+      function editarCurso(index, tipo, valor) {
+        llamarBackend('guardarCambioCurso', { index: index, tipo: tipo, valor: valor }, function(r) {
+          if (['cobrado', 'cliente', 'fecha_pago'].includes(tipo)) { cargarCursos(); cargarDashboard(); }
+        });
+      }
+
+      function ejecutarCobroCursosApp() {
+        Swal.fire({ title: '¿Ejecutar Cobro de Cursos?', text: "Se enviarán recordatorios usando las plantillas actuales a todas las cuotas vencidas.", icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, enviar correos 🚀' })
+        .then((result) => {
+          if (result.isConfirmed) { llamarBackend('ejecutarEnvioCobroCursos', {}, function(res) { Swal.fire('¡Completado!', res, 'success'); cargarCursos(); }); }
+        });
+      }
+
+      function cargarReporteAnual() {
+        const anio = document.getElementById('sel-anio-reporte').value;
+        const nombresMeses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+        llamarBackend('obtenerDatosReporteAnual', {anio: anio}, function(res) {
+          const maxMonto = Math.max(...res.meses, 1); 
+          document.getElementById('tabla-reporte-anual').innerHTML = res.meses.map((monto, i) => `<tr><td style="font-weight:bold; border-right:1px solid #ddd;">${nombresMeses[i]}</td><td style="background:${monto>0?'#00ff00':'transparent'}; font-weight:bold; border-right:1px solid #ddd;">$${monto.toLocaleString()}</td><td style="padding: 5px;"><div style="background:#2ecc71; width:${(monto/maxMonto)*100}%; height:18px;"></div></td></tr>`).join('');
+          document.getElementById('total-anio-txt').innerText = "$" + res.total.toLocaleString();
+          if(window.chartAnual) window.chartAnual.destroy();
+          window.chartAnual = new Chart(document.getElementById('chartReporteAnual'), { type: 'bar', data: { labels: nombresMeses, datasets: [{ data: res.meses, backgroundColor: '#00ff00' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+        });
+      }
+
+      function cargarReporteClientes() {
+        const anio = document.getElementById('sel-anio-cliente').value;
+        const mes = document.getElementById('sel-mes-cliente').value;
+        llamarBackend('obtenerDatosReporteClientes', {anio: anio, mesTexto: mes}, function(res) {
+          if(window.chartClientes) window.chartClientes.destroy();
+          window.chartClientes = new Chart(document.getElementById('chartReporteClientes'), { type: 'pie', data: { labels: res.labels.length > 0 ? res.labels : ["Sin cobros"], datasets: [{ data: res.valores.length > 0 ? res.valores : [1], backgroundColor: ['#00ff00', '#ffff00', '#3498db', '#e74c3c', '#9b59b6', '#e67e22'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        });
+      }
+
+      function ejecutarSistemaDeCobroApp() {
+        Swal.fire({ title: '¿Ejecutar Sistema de Cobro?', text: "Se enviarán recordatorios a todos los proyectos con estado VENCIDO.", icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, enviar correos 🚀' })
+        .then((result) => {
+          if (result.isConfirmed) { llamarBackend('ejecutarEnvioDesdeApp', {}, function(res) { Swal.fire('¡Completado!', res, 'success'); cargarProyectos(); }); }
+        });
+      }
+    </script>
+  </body>
+</html>
