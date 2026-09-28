@@ -1,122 +1,115 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { useState } from 'react'
+import { useOpcionesClientes, useTabla } from '@/lib/useTabla'
+import { confirmar } from '@/lib/alertas'
+import { ejecutarCobro } from '@/lib/ejecutarCobro'
+import { hoyISO } from '@/lib/fechas'
+import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla } from '@/components/ui'
+import type { EstadoProceso, Proyecto } from '@/lib/types'
 
-interface Proyecto {
-  id: string
-  nombre_proyecto: string
-  monto: number
-  cobrado: boolean
-  fecha_recepcion: string
-  fecha_entrega: string
-  fecha_pago: string
-  estado_proceso: string
-  comprobante_url: string
-  clientes?: { nombre: string }
+const ESTADOS: EstadoProceso[] = ['En Proceso', 'Terminado', 'Pausado']
+
+const PROYECTO_VACIO: Proyecto = {
+  id: '', cliente_id: null, nombre: '', monto: 0, cobrado: false,
+  fecha_recepcion: null, fecha_entrega: null, fecha_pago: null, estado_proceso: null,
+  aviso_hoy_enviado_at: null, aviso_7d_enviado_at: null, aviso_15d_enviado_at: null,
+  comprobante_url: null,
+}
+
+const COLUMNAS = [
+  'Proyecto', 'Cliente', 'Monto', 'Cobrado', 'F. Rec.', 'F. Entr.', 'F. Pago',
+  ...ESTADOS, 'Vence Hoy', 'Vence 7 Días', 'Vence 15 Días', 'Comprobante', '',
+]
+
+function FilaProyecto({ p, clientes, hoy, onCambio, onBorrar }: {
+  p: Proyecto
+  clientes: { id: string; nombre: string }[]
+  hoy: string
+  onCambio: (cambios: Partial<Proyecto>) => void
+  onBorrar?: () => void
+}) {
+  return (
+    <tr>
+      <td><InputTabla valor={p.nombre} placeholder="Proyecto..." onGuardar={(v) => onCambio({ nombre: v })} /></td>
+      <td>
+        <select value={p.cliente_id ?? ''} onChange={(e) => onCambio({ cliente_id: e.target.value || null })} className="select-tabla">
+          <option value="">-- Cliente --</option>
+          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+      </td>
+      <td><InputMonto valor={p.monto} onGuardar={(v) => onCambio({ monto: v })} /></td>
+      <td>
+        <input type="checkbox" checked={p.cobrado} onChange={(e) => onCambio({ cobrado: e.target.checked })} className="w-4 h-4 cursor-pointer" />
+      </td>
+      <td><InputFechaTabla valor={p.fecha_recepcion} onGuardar={(v) => onCambio({ fecha_recepcion: v })} /></td>
+      <td><InputFechaTabla valor={p.fecha_entrega} onGuardar={(v) => onCambio({ fecha_entrega: v })} /></td>
+      <td><InputFechaTabla valor={p.fecha_pago} onGuardar={(v) => onCambio({ fecha_pago: v })} /></td>
+      {ESTADOS.map((estado) => (
+        <td key={estado}>
+          <input type="checkbox" checked={p.estado_proceso === estado} className="w-4 h-4 cursor-pointer"
+            onChange={(e) => onCambio({ estado_proceso: e.target.checked ? estado : null })} />
+        </td>
+      ))}
+      {p.id ? <CeldasVencimiento registro={p} hoy={hoy} /> : <><td /><td /><td /></>}
+      <td><InputTabla valor={p.comprobante_url} placeholder="URL o Comprobante..." onGuardar={(v) => onCambio({ comprobante_url: v })} /></td>
+      <td>
+        {onBorrar && <button onClick={onBorrar} className="btn-icono btn-eliminar" title="Eliminar Proyecto">🗑️</button>}
+      </td>
+    </tr>
+  )
 }
 
 export default function ProyectosPage() {
-  const supabase = createClient()
-  const [proyectos, setProyectos] = useState<Proyecto[]>([])
-  const [loading, setLoading] = useState(true)
+  const { filas: proyectos, cargar, actualizar, insertar, eliminar } = useTabla<Proyecto>('proyectos')
+  const clientes = useOpcionesClientes()
+  const [hoy] = useState(hoyISO)
+  // Cambia la key de la fila en blanco para vaciarla tras crear un proyecto.
+  const [versionNueva, setVersionNueva] = useState(0)
 
-  useEffect(() => { cargarProyectos() }, [])
-
-  async function cargarProyectos() {
-    setLoading(true)
-    const { data } = await supabase
-      .from('proyectos')
-      .select('*, clientes(nombre)')
-      .order('created_at', { ascending: false })
-    if (data) setProyectos(data)
-    setLoading(false)
+  async function crear(cambios: Partial<Proyecto>) {
+    if (await insertar(cambios)) setVersionNueva((v) => v + 1)
   }
 
-  async function toggleCobrado(id: string, cobrado: boolean) {
-    await supabase.from('proyectos').update({ cobrado: !cobrado }).eq('id', id)
-    cargarProyectos()
+  async function borrar(p: Proyecto) {
+    if (await confirmar('¿Eliminar proyecto?', p.nombre || 'Proyecto sin nombre')) await eliminar(p.id)
   }
 
-  async function cambiarEstado(id: string, estado: string) {
-    await supabase.from('proyectos').update({ estado_proceso: estado }).eq('id', id)
-    cargarProyectos()
-  }
-
-  function calcularVencimiento(fechaPago: string) {
-    if (!fechaPago) return { hoy: '', d7: '', d15: '' }
-    const hoy = new Date(); hoy.setHours(0,0,0,0)
-    const fp = new Date(fechaPago); fp.setHours(0,0,0,0)
-    const diff = Math.floor((hoy.getTime() - fp.getTime()) / (1000 * 60 * 60 * 24))
-    return {
-      hoy: diff >= 0 ? 'VENCIDO' : '',
-      d7: diff >= 7 ? 'VENCIDO 7D' : '',
-      d15: diff >= 15 ? 'VENCIDO 15D' : '',
-    }
+  async function cobrar() {
+    if (await ejecutarCobro('proyectos')) await cargar()
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-center text-primary mb-6">📂 Proyectos y Finanzas</h1>
-      <div className="bg-white p-6 rounded-xl shadow-md w-full">
-        <h3 className="text-primary-light font-semibold mb-4">📊 Gestión de Proyectos Freelance</h3>
-        <div className="w-full overflow-x-auto">
-          <table className="w-full border-collapse min-w-[1200px]">
+      <h1 className="titulo-seccion">📂 Proyectos y Finanzas</h1>
+      <div className="card-ancha">
+        <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+          <h3 className="text-primary-light font-semibold">📊 Gestión de Proyectos Freelance</h3>
+          <button onClick={cobrar} className="btn-cobro">🚀 Ejecutar Cobro de Proyectos</button>
+        </div>
+        <div className="tabla-contenedor">
+          <table className="tabla min-w-[1400px]">
             <thead>
-              <tr>
-                {['Proyecto', 'Cliente', 'Monto', 'Cobrado', 'F. Rec.', 'F. Entr.', 'F. Pago', 'Estado', 'Vence Hoy', 'Vence 7D', 'Vence 15D', 'Comprobante'].map(h => (
-                  <th key={h} className="bg-gray-50 border-b-2 border-gray-200 py-3 px-2 text-center text-[0.85em] font-bold">{h}</th>
-                ))}
-              </tr>
+              <tr>{COLUMNAS.map((h, i) => <th key={i}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={12} className="text-center py-8 text-gray-400">Cargando proyectos...</td></tr>
-              ) : proyectos.length === 0 ? (
-                <tr><td colSpan={12} className="text-center py-8 text-gray-400">No hay proyectos registrados</td></tr>
+              {!proyectos ? (
+                <Cargando columnas={COLUMNAS.length} texto="Cargando proyectos..." />
               ) : (
-                proyectos.map(p => {
-                  const v = p.cobrado ? { hoy: '', d7: '', d15: '' } : calcularVencimiento(p.fecha_pago)
-                  return (
-                    <tr key={p.id} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary">{p.nombre_proyecto}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary">{p.clientes?.nombre || '-'}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-green-700 font-bold">${p.monto}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        <input type="checkbox" checked={p.cobrado} onChange={() => toggleCobrado(p.id, p.cobrado)} className="w-4 h-4 cursor-pointer" />
-                      </td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary">{p.fecha_recepcion || '-'}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary">{p.fecha_entrega || '-'}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary">{p.fecha_pago || '-'}</td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        <select value={p.estado_proceso} onChange={e => cambiarEstado(p.id, e.target.value)}
-                          className="border border-gray-200 rounded px-2 py-1 text-center text-[0.85em] cursor-pointer min-w-[130px]">
-                          <option value="En Proceso">En Proceso</option>
-                          <option value="Terminado">Terminado</option>
-                          <option value="Pausado">Pausado</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        {v.hoy && <span className="bg-red-500 text-white px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase">{v.hoy}</span>}
-                      </td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        {v.d7 && <span className="bg-accent-cyan text-black px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase">{v.d7}</span>}
-                      </td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        {v.d15 && <span className="bg-success text-white px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase">{v.d15}</span>}
-                      </td>
-                      <td className="py-2 px-1 border-b border-gray-100 text-center">
-                        {p.comprobante_url && (
-                          <a href={p.comprobante_url} target="_blank" className="text-accent hover:underline text-sm">📎 Ver</a>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })
+                <>
+                  {proyectos.map((p) => (
+                    <FilaProyecto key={p.id} p={p} clientes={clientes} hoy={hoy}
+                      onCambio={(cambios) => actualizar(p.id, cambios)} onBorrar={() => borrar(p)} />
+                  ))}
+                  <FilaProyecto key={`nuevo-${versionNueva}`} p={PROYECTO_VACIO} clientes={clientes} hoy={hoy} onCambio={crear} />
+                </>
               )}
             </tbody>
           </table>
         </div>
+        <p className="text-xs text-gray-400 mt-3 text-center">
+          Escribe en la última fila para agregar un proyecto nuevo.
+        </p>
       </div>
     </div>
   )

@@ -5,6 +5,8 @@
   --color-primary-light: #2c3e50;
   --color-accent: #3498db;
   --color-accent-cyan: #00ffff;
+  --color-login-cyan: #00bfff;
+  --color-login-green: #00ff7f;
   --color-success: #2ecc71;
   --color-danger: #e74c3c;
   --color-warning: #f1c40f;
@@ -26,6 +28,7 @@ body {
 /* Scrollbar personalizado */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -33,4 +36,75 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #34495e;
   border-radius: 3px;
+}
+
+/* Piezas reutilizadas en todas las secciones (equivalen a las clases del legacy). */
+@layer components {
+  .titulo-seccion {
+    @apply text-2xl font-extrabold text-center text-primary mb-6;
+  }
+  .card {
+    @apply bg-white p-6 rounded-xl shadow-md max-w-[950px] mx-auto max-md:p-4;
+  }
+  .card-ancha {
+    @apply bg-white p-6 rounded-xl shadow-md w-full max-md:p-4;
+  }
+  .banda {
+    @apply p-1.5 text-center font-bold mb-3 text-sm;
+  }
+  .etiqueta {
+    @apply block text-[0.75em] font-bold text-gray-500 uppercase text-center mb-0.5;
+  }
+  .campo {
+    @apply w-full p-2.5 mb-3 border border-gray-200 rounded-md text-center text-primary bg-white;
+  }
+  .btn-principal {
+    @apply w-full bg-success text-white font-bold py-3.5 rounded-lg text-[1.1em] mt-2 hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50;
+  }
+  .btn-cobro {
+    @apply cursor-pointer bg-[#1a73e8] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#1558b0] transition-colors disabled:opacity-50;
+  }
+
+  .tabla-contenedor {
+    @apply w-full overflow-x-auto;
+  }
+  .tabla {
+    @apply w-full border-collapse min-w-[1100px];
+  }
+  .tabla th {
+    @apply bg-gray-50 border-b-2 border-gray-200 py-3 px-2 text-center text-[0.85em] font-bold;
+  }
+  .tabla td {
+    @apply py-2 px-1 border-b border-gray-100 text-center text-[0.85em] text-primary;
+  }
+  .tabla tbody tr {
+    @apply hover:bg-blue-50/50 transition-colors;
+  }
+  .input-tabla {
+    @apply w-full border-0 bg-transparent p-1 text-center rounded focus:bg-[#f0f7ff] focus:outline focus:outline-accent;
+  }
+  .select-tabla {
+    @apply border border-gray-200 rounded p-1 bg-white w-full min-w-[180px] cursor-pointer text-center;
+  }
+
+  .estado {
+    @apply inline-block min-w-[85px] px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wide text-gray-500;
+  }
+  .estado-rojo {
+    @apply bg-[#ff0000] text-white shadow-sm;
+  }
+  .estado-azul {
+    @apply bg-accent-cyan text-black shadow-sm;
+  }
+  .estado-verde {
+    @apply bg-success text-white shadow-sm;
+  }
+
+  .btn-icono {
+    @apply inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-[13px] font-medium text-white transition-colors cursor-pointer whitespace-nowrap;
+  }
+  .btn-editar { @apply bg-blue-500 hover:bg-blue-600; }
+  .btn-eliminar { @apply bg-red-500 hover:bg-red-600; }
+  .btn-precio { @apply bg-[#f39c12] hover:bg-[#d68910]; }
+  .btn-renovar { @apply bg-[#27ae60] hover:bg-[#219653]; }
 }

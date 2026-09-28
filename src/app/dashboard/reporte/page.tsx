@@ -1,10 +1,17 @@
+'use client'
+
+import ReporteFinanciero from '@/components/ReporteFinanciero'
+import { cargarMovimientosUsuario } from '@/lib/movimientos'
+
 export default function ReportePage() {
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-center text-primary mb-6">📈 Reporte Mensual y Anual</h1>
-      <div className="bg-white p-6 rounded-xl shadow-md w-full">
-        <p className="text-center text-gray-400 py-8">Módulo de Reportes - Próximamente conectado a Supabase</p>
-      </div>
+      <h1 className="titulo-seccion">📈 Reporte Mensual y Anual</h1>
+      <ReporteFinanciero
+        cargar={cargarMovimientosUsuario}
+        tituloAnual="REPORTE DE INGRESOS ANUAL"
+        tituloClientes="REPORTE POR CLIENTE"
+      />
     </div>
   )
 }

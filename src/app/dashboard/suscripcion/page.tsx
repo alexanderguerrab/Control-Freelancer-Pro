@@ -1,34 +1,61 @@
-export default function SuscripcionPage() {
+import { createClient } from '@/utils/supabase/server'
+import { EstadoSuscripcion } from '@/components/ui'
+import { estadoSuscripcion } from '@/lib/saas'
+import type { PagoSaaS, SuscripcionSaaS } from '@/lib/types'
+
+function Caja({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="flex-1 bg-white p-5 rounded-lg border border-gray-200 text-center shadow-sm min-w-[200px]">
+      <label className="etiqueta">{titulo}</label>
+      <div className="text-xl font-extrabold mt-1">{children}</div>
+    </div>
+  )
+}
+
+export default async function SuscripcionPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: suscripcion }, { data: pagos }] = await Promise.all([
+    supabase.from('suscripciones_saas').select('*').eq('usuario_id', user!.id).maybeSingle<SuscripcionSaaS>(),
+    supabase.from('pagos_saas').select('*').eq('usuario_id', user!.id).order('fecha_pago', { ascending: false }),
+  ])
+  const historial = (pagos ?? []) as PagoSaaS[]
+
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-center text-primary mb-6">💳 Estado de Mi Suscripción</h1>
+      <h1 className="titulo-seccion">💳 Estado de Mi Suscripción</h1>
+
       <div className="flex gap-4 mb-5 flex-wrap">
-        <div className="flex-1 bg-white p-5 rounded-lg border border-gray-200 text-center shadow-sm min-w-[200px]">
-          <label className="block text-[0.75em] font-bold text-gray-500 uppercase">PLAN ACTUAL</label>
-          <span className="text-xl font-extrabold text-accent">Premium</span>
-        </div>
-        <div className="flex-1 bg-white p-5 rounded-lg border border-gray-200 text-center shadow-sm min-w-[200px]">
-          <label className="block text-[0.75em] font-bold text-gray-500 uppercase">PRÓXIMO PAGO</label>
-          <span className="text-xl font-extrabold text-warning-gold">---</span>
-        </div>
-        <div className="flex-1 bg-white p-5 rounded-lg border border-gray-200 text-center shadow-sm min-w-[200px]">
-          <label className="block text-[0.75em] font-bold text-gray-500 uppercase">ESTADO</label>
-          <span className="bg-success text-white px-3 py-1 rounded-xl text-xs font-extrabold uppercase mt-1 inline-block">Activo</span>
-        </div>
+        <Caja titulo="Plan Actual"><span className="text-accent">{suscripcion?.plan ?? 'Sin plan activo'}</span></Caja>
+        <Caja titulo="Próximo Pago"><span className="text-warning-gold">{suscripcion?.proximo_pago ?? '---'}</span></Caja>
+        <Caja titulo="Estado"><EstadoSuscripcion estado={estadoSuscripcion(suscripcion)} /></Caja>
       </div>
-      <div className="bg-white p-6 rounded-xl shadow-md w-full">
+
+      <div className="card-ancha">
         <div className="bg-warning-gold p-2 font-bold text-center text-sm">HISTORIAL DE PAGOS</div>
-        <div className="w-full overflow-x-auto mt-2">
-          <table className="w-full border-collapse">
+        <div className="tabla-contenedor mt-2">
+          <table className="tabla min-w-[700px]">
             <thead>
-              <tr>
-                {['FECHA DE PAGO', 'PERIODO CUBIERTO', 'PLAN', 'MÉTODO', 'RECIBO'].map(h => (
-                  <th key={h} className="bg-gray-50 border-b-2 border-gray-200 py-3 px-2 text-center text-[0.85em] font-bold">{h}</th>
-                ))}
-              </tr>
+              <tr>{['FECHA DE PAGO', 'PERIODO CUBIERTO', 'PLAN', 'MÉTODO', 'RECIBO'].map((h) => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              <tr><td colSpan={5} className="text-center py-8 text-gray-400">No hay pagos registrados aún</td></tr>
+              {historial.length === 0 ? (
+                <tr><td colSpan={5} className="py-8! text-gray-400!">No hay pagos registrados en tu historial.</td></tr>
+              ) : (
+                historial.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.fecha_pago}</td>
+                    <td>{p.periodo}</td>
+                    <td>{p.plan}</td>
+                    <td>{p.metodo}</td>
+                    <td>
+                      {p.recibo_url && (
+                        <a href={p.recibo_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

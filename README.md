@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Control Freelancer Pro
 
-## Getting Started
+Panel para freelancers: clientes, proyectos, cursos/suscripciones, cobros
+automáticos por correo, reportes y un panel de administrador SaaS.
 
-First, run the development server:
+Stack: **Next.js 16** (App Router) + **Supabase** (PostgreSQL, Auth, RLS) + Tailwind CSS 4.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+La versión anterior (Google Apps Script + Google Sheets + Firebase Auth) está
+en [`legacy/`](legacy/) como referencia.
+
+## Puesta en marcha
+
+1. Instala dependencias: `npm install`
+2. Crea `.env.local` a partir de [`.env.example`](.env.example).
+3. Aplica las migraciones de la base de datos:
+   ```bash
+   npx supabase db push
+   ```
+   (o pega los archivos de `supabase/migrations/` en el Editor SQL de Supabase, en orden).
+4. Arranca en local: `npm run dev` → http://localhost:3000
+
+## Usuarios y roles
+
+- Al registrarse, cada usuario queda **Pendiente** hasta que el administrador lo
+  autorice en *Gestión Usuarios Admin*.
+- El **primer usuario** del sistema se convierte en Administrador automáticamente.
+  Para asignar otro administrador desde el Editor SQL:
+  ```sql
+  update usuarios set rol = 'Administrador', estado = 'Autorizado' where email = 'correo@ejemplo.com';
+  ```
+- Cada usuario solo ve sus propios datos; lo impone Row Level Security en la base de datos.
+
+## Envío de recordatorios de cobro
+
+Los botones "🚀 Ejecutar Cobro" envían correos por SMTP. Con Gmail usa una
+[contraseña de aplicación](https://myaccount.google.com/apppasswords):
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=tucorreo@gmail.com
+SMTP_PASS=la-contraseña-de-aplicación
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Como en el sistema anterior, cada ejecución manda como máximo un recordatorio
+por registro vencido, en orden: vence hoy → 7 días → 15 días.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuración en el panel de Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Authentication → URL Configuration**: añade tu dominio (y `http://localhost:3000`)
+  a *Site URL* / *Redirect URLs*, incluyendo `/auth/callback`.
+- **Authentication → Providers → Google**: actívalo si quieres el botón
+  "Iniciar sesión con Google".
 
-## Learn More
+## Despliegue en Vercel
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Importa el repositorio en Vercel y define las mismas variables de `.env.local`
+en *Settings → Environment Variables*.
