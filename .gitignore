@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Datos exportados de Google Sheets para la migración (información privada de clientes)
+/importacion/
