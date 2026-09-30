@@ -102,3 +102,24 @@ export interface PagoSaaS {
   monto: number
   recibo_url: string | null
 }
+
+/** Plan y próximo pago de un cliente del freelancer (tabla suscripciones_clientes). */
+export interface SuscripcionCliente {
+  cliente_id: string
+  plan: PlanSaaS
+  proximo_pago: string | null
+  estado: string
+}
+
+/** Pago que el freelancer registró de uno de sus clientes (tabla pagos_clientes). */
+export interface PagoCliente {
+  id: string
+  cliente_id: string
+  fecha_pago: string
+  fecha_suscripcion: string | null
+  periodo: string | null
+  plan: PlanSaaS
+  metodo: string | null
+  monto: number
+  recibo_url: string | null
+}

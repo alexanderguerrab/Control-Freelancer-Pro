@@ -27,6 +27,7 @@ const itemsUsuario: ItemMenu[] = [
   { label: '💼 Registro de Clientes', path: '/dashboard/clientes' },
   { label: '📊 Dashboard Visual', path: '/dashboard/visual' },
   { label: '📂 Proyectos y Finanzas', path: '/dashboard/proyectos' },
+  { label: '💰 Finanzas y Cobros', path: '/dashboard/finanzas' },
   { label: '🎓 Cursos y Suscripciones', path: '/dashboard/cursos' },
   { label: '📈 Reporte Mensual', path: '/dashboard/reporte' },
   { label: '✉️ Scripts de Cobro', path: '/dashboard/scripts' },

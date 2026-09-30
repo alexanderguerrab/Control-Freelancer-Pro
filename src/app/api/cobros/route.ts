@@ -30,7 +30,16 @@ const TABLAS: Record<TipoCobro, string> = {
   saas: 'control_saas',
 }
 
+// Enviar varios correos por SMTP puede tardar más que el límite por defecto.
+export const maxDuration = 60
+
 const json = (cuerpo: object, status = 200) => NextResponse.json(cuerpo, { status })
+
+/** Primera línea del error, acotada, para mostrarla en el aviso. */
+function mensajeError(e: unknown): string {
+  const texto = e instanceof Error ? e.message : String(e)
+  return texto.split('\n')[0].slice(0, 200)
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
@@ -44,9 +53,13 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return json({ error: 'Sesión no válida.' }, 401)
 
-  if (tipo === 'saas') {
-    const { data: esAdmin } = await supabase.rpc('es_admin')
-    if (!esAdmin) return json({ error: 'Solo el administrador puede ejecutar el cobro SaaS.' }, 403)
+  const { data: rolAdmin } = await supabase.rpc('es_admin')
+  const esAdmin = Boolean(rolAdmin)
+
+  // El cobro SaaS es del admin hacia los freelancers. Cada freelancer cobra
+  // a sus propios clientes con 'proyectos' y 'cursos' (RLS ya los aísla).
+  if (tipo === 'saas' && !esAdmin) {
+    return json({ error: 'Solo el administrador puede ejecutar el cobro SaaS.' }, 403)
   }
 
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
@@ -63,16 +76,35 @@ export async function POST(request: Request) {
   const destinos = await obtenerDestinos(supabase, tipo)
   if ('error' in destinos) return json({ error: destinos.error }, 500)
 
+  const hayPendientes = destinos.some((d) => etapaPendiente(d.registro, hoy))
+  if (!hayPendientes) return json({ mensaje: 'No hay recordatorios pendientes por enviar.', enviados: 0 })
+
   const puerto = Number(SMTP_PORT ?? 465)
   const transporte = nodemailer.createTransport({
     host: SMTP_HOST,
     port: puerto,
     secure: puerto === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 20_000,
   })
+
+  // Si el SMTP no responde o rechaza las credenciales, se dice aquí con el
+  // motivo real en lugar de fallar correo por correo sin explicación.
+  try {
+    await transporte.verify()
+  } catch (e) {
+    console.error('SMTP no disponible', e)
+    const detalle = esAdmin ? `: ${mensajeError(e)}` : '. Avisa al administrador.'
+    return json({ error: `No se pudo conectar con el servidor de correo${detalle}` }, 502)
+  }
+
+  const remitente = await obtenerRemitente(supabase, tipo, SMTP_FROM || SMTP_USER)
 
   let enviados = 0
   let sinCorreo = 0
+  let sinMarcar = 0
   const fallidos: string[] = []
 
   for (const destino of destinos) {
@@ -91,30 +123,53 @@ export async function POST(request: Request) {
 
     try {
       await transporte.sendMail({
-        from: SMTP_FROM || SMTP_USER,
+        from: remitente,
         replyTo: user.email,
         to: destino.email,
         subject: ASUNTOS[tipo] + (destino.concepto || 'Pendiente'),
         text: texto,
       })
-      await supabase
-        .from(TABLAS[tipo])
-        .update({ [etapa.columna]: new Date().toISOString() })
-        .eq('id', destino.registro.id)
       enviados++
     } catch (e) {
       console.error('Error enviando recordatorio', destino.email, e)
-      fallidos.push(destino.email)
+      fallidos.push(esAdmin ? `${destino.email} (${mensajeError(e)})` : destino.email)
+      continue
+    }
+
+    // El correo ya salió: si no se puede marcar, se avisa porque el próximo
+    // clic lo volvería a enviar.
+    const { error: errMarca } = await supabase
+      .from(TABLAS[tipo])
+      .update({ [etapa.columna]: new Date().toISOString() })
+      .eq('id', destino.registro.id)
+    if (errMarca) {
+      console.error('No se pudo marcar el aviso como enviado', destino.registro.id, errMarca)
+      sinMarcar++
     }
   }
 
   let mensaje = `Se enviaron ${enviados} recordatorios de cobro.`
   if (sinCorreo) mensaje += ` ${sinCorreo} vencidos no tienen un correo válido.`
-  if (fallidos.length) mensaje += ` Fallaron: ${fallidos.join(', ')}.`
+  if (sinMarcar) mensaje += ` ${sinMarcar} no pudieron marcarse como enviados y podrían repetirse.`
+  if (fallidos.length) mensaje += ` Fallaron: ${fallidos.join('; ')}.`
   return json({ mensaje, enviados })
 }
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Todos los correos salen por la cuenta SMTP del sistema. A los cobros de
+ * cada freelancer se les pone su marca como nombre visible (Reply-To ya es
+ * su correo), para que el cliente sepa de quién viene el recordatorio.
+ */
+async function obtenerRemitente(supabase: Supabase, tipo: TipoCobro, base: string): Promise<string> {
+  if (tipo === 'saas') return base
+  const { data } = await supabase.from('perfil').select('marca, nombre').maybeSingle()
+  const nombre = (data?.marca || data?.nombre || '').replace(/["<>\r\n]/g, '').trim()
+  if (!nombre) return base
+  const direccion = base.match(/<([^>]+)>/)?.[1] ?? base
+  return `"${nombre}" <${direccion}>`
+}
 
 async function obtenerScripts(supabase: Supabase): Promise<ScriptsCobro | null> {
   const { data } = await supabase.from('scripts_cobro').select('*').maybeSingle()
