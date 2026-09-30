@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { aviso, error, exito } from '@/lib/alertas'
-import { ejecutarCobro } from '@/lib/ejecutarCobro'
 import { estadoSuscripcion } from '@/lib/saas'
 import { Cargando, EstadoSuscripcion } from '@/components/ui'
 import type { PagoCliente, PlanSaaS, SuscripcionCliente } from '@/lib/types'
@@ -125,13 +124,7 @@ export default function FinanzasClientesPage() {
       <h1 className="titulo-seccion text-warning-gold!">💰 FINANZAS Y COBROS</h1>
 
       <div className="card-ancha">
-        <div className="flex justify-between items-center mb-3 gap-3 flex-wrap">
-          <h3 className="text-accent font-semibold">⚠️ Clientes Vencidos o Próximos a Vencer</h3>
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => ejecutarCobro('cursos')} className="btn-cobro">🚀 Cobrar Suscripciones</button>
-            <button onClick={() => ejecutarCobro('proyectos')} className="btn-cobro">🚀 Cobrar Proyectos</button>
-          </div>
-        </div>
+        <h3 className="text-accent font-semibold mb-3">⚠️ Clientes Vencidos o Próximos a Vencer</h3>
         <div className="tabla-contenedor">
           <table className="tabla min-w-[600px]!">
             <thead>
@@ -156,7 +149,7 @@ export default function FinanzasClientesPage() {
           </table>
         </div>
         <p className="text-xs text-gray-400 mt-3 text-center">
-          Los recordatorios se envían con las cuotas de Cursos y Suscripciones y con los Proyectos vencidos, usando tus Scripts de Cobro.
+          Los recordatorios de cobro se envían desde Proyectos y Finanzas y desde Cursos y Suscripciones, usando tus Scripts de Cobro.
         </p>
       </div>
 

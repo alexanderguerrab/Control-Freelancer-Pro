@@ -84,7 +84,8 @@ export async function POST(request: Request) {
     host: SMTP_HOST,
     port: puerto,
     secure: puerto === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // Google muestra la contraseña de aplicación en bloques con espacios.
+    auth: { user: SMTP_USER.trim(), pass: SMTP_PASS.replace(/\s+/g, '') },
     connectionTimeout: 15_000,
     greetingTimeout: 15_000,
     socketTimeout: 20_000,
