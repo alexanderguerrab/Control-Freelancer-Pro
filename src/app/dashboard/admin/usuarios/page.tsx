@@ -13,10 +13,9 @@ const ESTADOS: EstadoUsuario[] = ['Pendiente', 'Autorizado', 'Bloqueado']
 function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
   u: Usuario
   esYo: boolean
-  onGuardar: (cambios: Pick<Usuario, 'cliente' | 'telefono' | 'rol' | 'estado'>) => void
+  onGuardar: (cambios: Pick<Usuario, 'telefono' | 'rol' | 'estado'>) => void
   onEliminar: () => void
 }) {
-  const [cliente, setCliente] = useState(u.cliente ?? '')
   const [telefono, setTelefono] = useState(u.telefono ?? '')
   const [rol, setRol] = useState(u.rol)
   const [estado, setEstado] = useState(u.estado)
@@ -24,7 +23,8 @@ function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
   return (
     <tr>
       <td className="text-[10px]!">{u.id}</td>
-      <td><input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre del cliente..." className="input-tabla w-[170px]" /></td>
+      {/* Viene de Registro de Clientes (mismo correo); se sincroniza solo en la base de datos. */}
+      <td className="font-semibold">{u.cliente || <span className="text-gray-400 font-normal">Sin registrar</span>}</td>
       <td>{u.email}</td>
       <td><input value={telefono} onChange={(e) => setTelefono(e.target.value)} className="input-tabla w-[120px]" /></td>
       <td>{u.fecha_registro}</td>
@@ -40,7 +40,7 @@ function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
       </td>
       <td>
         <div className="flex gap-1.5 justify-center">
-          <button onClick={() => onGuardar({ cliente: cliente.trim(), telefono, rol, estado })} className="btn-icono btn-editar">✏️ Editar</button>
+          <button onClick={() => onGuardar({ telefono, rol, estado })} className="btn-icono btn-editar">✏️ Editar</button>
           <button onClick={onEliminar} className="btn-icono btn-eliminar" disabled={esYo}>🗑️ Eliminar</button>
         </div>
       </td>
@@ -56,7 +56,7 @@ export default function UsuariosSaaSPage() {
     createClient().auth.getUser().then(({ data }) => setMiId(data.user?.id ?? null))
   }, [])
 
-  async function guardar(u: Usuario, cambios: Pick<Usuario, 'cliente' | 'telefono' | 'rol' | 'estado'>) {
+  async function guardar(u: Usuario, cambios: Pick<Usuario, 'telefono' | 'rol' | 'estado'>) {
     if (await actualizar(u.id, cambios)) exito('Usuario actualizado', 'Éxito')
   }
 
