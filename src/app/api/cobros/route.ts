@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { etapaPendiente, plantillaDe, rellenarPlantilla, type TipoCobro } from '@/lib/cobros'
 import { configuracionEnvio, CORREO_NO_CONFIGURADO, mensajeError } from '@/lib/correo'
 import { hoyISO } from '@/lib/fechas'
+import { construirCorreo, pausa } from '@/lib/plantillaCorreo'
 import type { RegistroCobrable, ScriptsCobro } from '@/lib/types'
 
 /**
@@ -16,12 +17,6 @@ interface Destino {
   email: string | null
   nombre: string
   concepto: string
-}
-
-const ASUNTOS: Record<TipoCobro, string> = {
-  proyectos: '⚠️ Recordatorio de Pago: ',
-  cursos: '⚠️ Recordatorio de Pago / Suscripción: ',
-  saas: '⚠️ Recordatorio de Pago SaaS: ',
 }
 
 const TABLAS: Record<TipoCobro, string> = {
@@ -92,6 +87,9 @@ export async function POST(request: Request) {
   }
 
   const remitente = await obtenerRemitente(supabase, envio.direccion)
+  const nombreRemitente = remitente.match(/^"([^"]+)"/)?.[1] ?? ''
+  const responderA = envio.propio ? envio.direccion : (user.email ?? envio.direccion)
+  let primero = true
 
   let enviados = 0
   let sinCorreo = 0
@@ -112,14 +110,27 @@ export async function POST(request: Request) {
       monto: destino.registro.monto,
     })
 
+    const correo = construirCorreo(tipo, {
+      concepto: destino.concepto,
+      cuerpo: texto,
+      remitente: nombreRemitente,
+      responderA,
+    })
+
+    // Pausa corta entre correos: una ráfaga idéntica se parece a spam masivo.
+    if (!primero) await pausa(800)
+    primero = false
+
     try {
       await transporte.sendMail({
         from: remitente,
         // Solo el admin usa el correo del sistema; sus respuestas van a su cuenta.
         replyTo: envio.propio ? undefined : user.email,
         to: destino.email,
-        subject: ASUNTOS[tipo] + (destino.concepto || 'Pendiente'),
-        text: texto,
+        subject: correo.subject,
+        text: correo.text,
+        html: correo.html,
+        headers: { 'List-Unsubscribe': `<mailto:${responderA}?subject=No%20recibir%20recordatorios>` },
       })
       enviados++
     } catch (e) {
@@ -179,7 +190,7 @@ async function obtenerDestinos(supabase: Supabase, tipo: TipoCobro): Promise<Des
     const correos = new Map((usuarios ?? []).map((u) => [u.id, u.email as string | null]))
     return (filas ?? []).map((f) => {
       const email = f.usuario_id ? correos.get(f.usuario_id) ?? null : null
-      return { registro: f, email, nombre: email ?? '', concepto: f.plan || 'Suscripción' }
+      return { registro: f, email, nombre: email ? email.split('@')[0] : '', concepto: f.plan || 'Suscripción' }
     })
   }
 
