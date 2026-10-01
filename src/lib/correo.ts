@@ -3,8 +3,8 @@ import nodemailer, { type Transporter } from 'nodemailer'
 import type { createClient } from '@/utils/supabase/server'
 
 /**
- * Solo servidor. Envío de correos de cobro: con el Gmail propio del usuario
- * si lo conectó (tabla correo_envio), o con el SMTP del sistema si no.
+ * Solo servidor. Envío de correos de cobro con el Gmail propio que cada
+ * usuario conecta (tabla correo_envio). Sin Gmail conectado no se envía.
  */
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -60,8 +60,15 @@ export interface ConfigEnvio {
   propio: boolean
 }
 
-/** Elige con qué cuenta enviar. Devuelve un texto de error si no hay ninguna utilizable. */
-export async function configuracionEnvio(supabase: Supabase): Promise<ConfigEnvio | string> {
+export const CORREO_NO_CONFIGURADO = 'correo_no_configurado'
+
+/**
+ * Elige con qué cuenta enviar. Cada usuario envía desde su propio Gmail; si
+ * no lo ha conectado no se envía nada y se devuelve CORREO_NO_CONFIGURADO.
+ * Solo el administrador puede caer al SMTP del sistema, que es su cuenta.
+ * Cualquier otro texto devuelto es un mensaje de error.
+ */
+export async function configuracionEnvio(supabase: Supabase, esAdmin: boolean): Promise<ConfigEnvio | string> {
   const { data: propio } = await supabase.from('correo_envio').select('email, password_cifrada').maybeSingle()
   if (propio) {
     try {
@@ -76,9 +83,7 @@ export async function configuracionEnvio(supabase: Supabase): Promise<ConfigEnvi
   }
 
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    return 'El envío de correos no está configurado. Conecta tu Gmail en Scripts de Cobro.'
-  }
+  if (!esAdmin || !SMTP_HOST || !SMTP_USER || !SMTP_PASS) return CORREO_NO_CONFIGURADO
   const puerto = Number(SMTP_PORT ?? 465)
   return {
     transporte: nodemailer.createTransport({

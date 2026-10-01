@@ -4,8 +4,8 @@
 -- Cada usuario puede conectar su Gmail (contraseña de aplicación) para que
 -- sus recordatorios salgan desde su dirección. La contraseña se guarda
 -- cifrada con AES-256-GCM por el servidor (clave CORREO_CLAVE_CIFRADO, que
--- nunca llega a la base de datos ni al navegador). Sin fila aquí, los
--- cobros salen por el SMTP del sistema como antes.
+-- nunca llega a la base de datos ni al navegador). Sin fila aquí no se
+-- envían cobros (solo el administrador usa el SMTP del sistema).
 -- =====================================================================
 
 create table public.correo_envio (

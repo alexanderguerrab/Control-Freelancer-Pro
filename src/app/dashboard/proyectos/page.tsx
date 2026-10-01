@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useOpcionesClientes, useTabla } from '@/lib/useTabla'
 import { confirmar } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
@@ -63,6 +64,7 @@ function FilaProyecto({ p, clientes, hoy, onCambio, onBorrar }: {
 export default function ProyectosPage() {
   const { filas: proyectos, cargar, actualizar, insertar, eliminar } = useTabla<Proyecto>('proyectos')
   const clientes = useOpcionesClientes()
+  const router = useRouter()
   const [hoy] = useState(hoyISO)
   // Cambia la key de la fila en blanco para vaciarla tras crear un proyecto.
   const [versionNueva, setVersionNueva] = useState(0)
@@ -76,7 +78,7 @@ export default function ProyectosPage() {
   }
 
   async function cobrar() {
-    if (await ejecutarCobro('proyectos')) await cargar()
+    if (await ejecutarCobro('proyectos', router.push)) await cargar()
   }
 
   return (

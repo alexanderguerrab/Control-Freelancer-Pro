@@ -21,12 +21,18 @@ async function sesion() {
   return { supabase, user }
 }
 
-/** Dirección conectada, o null si se usa el correo del sistema. */
+/**
+ * Dirección conectada, o null si no hay. `sistema` indica que, sin conexión
+ * propia, los cobros igual salen por el correo del sistema (solo el admin).
+ */
 export async function GET() {
   const { supabase, user } = await sesion()
   if (!user) return json({ error: 'Sesión no válida.' }, 401)
-  const { data } = await supabase.from('correo_envio').select('email').maybeSingle()
-  return json({ email: data?.email ?? null })
+  const [{ data }, { data: esAdmin }] = await Promise.all([
+    supabase.from('correo_envio').select('email').maybeSingle(),
+    supabase.rpc('es_admin'),
+  ])
+  return json({ email: data?.email ?? null, sistema: Boolean(esAdmin) })
 }
 
 export async function POST(request: Request) {

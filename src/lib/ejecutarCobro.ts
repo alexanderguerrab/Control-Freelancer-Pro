@@ -19,8 +19,11 @@ const TEXTOS: Record<TipoCobro, { titulo: string; texto: string }> = {
   },
 }
 
-/** Pide confirmación y llama a /api/cobros. Devuelve true si se ejecutó. */
-export async function ejecutarCobro(tipo: TipoCobro): Promise<boolean> {
+/**
+ * Pide confirmación y llama a /api/cobros. Devuelve true si se ejecutó.
+ * `navegar` (router.push) se usa para llevar a configurar el correo si falta.
+ */
+export async function ejecutarCobro(tipo: TipoCobro, navegar: (ruta: string) => void): Promise<boolean> {
   const { titulo, texto } = TEXTOS[tipo]
   if (!(await preguntar(titulo, texto, 'Sí, enviar correos 🚀'))) return false
 
@@ -33,6 +36,11 @@ export async function ejecutarCobro(tipo: TipoCobro): Promise<boolean> {
       body: JSON.stringify({ tipo, hoy: hoyISO() }),
     })
     const json = await res.json()
+    if (json.codigo === 'correo_no_configurado') {
+      const ir = await preguntar('Correo no configurado', json.error, '⚙️ Configurar ahora')
+      if (ir) navegar('/dashboard/scripts')
+      return false
+    }
     if (!res.ok) {
       await error(json.error ?? 'No se pudo ejecutar el cobro.')
       return false

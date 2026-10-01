@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react'
 import { cargando, cerrar, confirmar, error, exito } from '@/lib/alertas'
 
+const URL_CLAVES_GOOGLE = 'https://myaccount.google.com/apppasswords'
+
 /**
  * Permite al usuario conectar su Gmail para que los recordatorios de cobro
- * salgan desde su propia dirección. Sin conexión, salen por el correo del
- * sistema y las respuestas llegan al correo de su cuenta.
+ * salgan desde su propia dirección. Sin conexión no se envía ningún
+ * recordatorio (salvo el administrador, que usa el correo del sistema).
  */
 export default function ConexionCorreo() {
-  // undefined = cargando; null = usa el correo del sistema
+  // undefined = cargando; null = sin Gmail conectado
   const [conectado, setConectado] = useState<string | null | undefined>(undefined)
+  const [usaSistema, setUsaSistema] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -19,7 +22,9 @@ export default function ConexionCorreo() {
     fetch('/api/correo')
       .then((r) => r.json())
       .then((j) => {
-        if (activo) setConectado(j.email ?? null)
+        if (!activo) return
+        setConectado(j.email ?? null)
+        setUsaSistema(Boolean(j.sistema))
       })
       .catch(() => {
         if (activo) setConectado(null)
@@ -53,7 +58,9 @@ export default function ConexionCorreo() {
   async function desconectar() {
     const ok = await confirmar(
       '¿Desconectar tu Gmail?',
-      'Tus recordatorios volverán a salir desde el correo del sistema.',
+      usaSistema
+        ? 'Tus recordatorios volverán a salir desde el correo del sistema.'
+        : 'No se enviarán recordatorios hasta que vuelvas a conectar un correo.',
       'Sí, desconectar'
     )
     if (!ok) return
@@ -76,9 +83,23 @@ export default function ConexionCorreo() {
         </div>
       ) : (
         <form onSubmit={conectar}>
-          <p className="text-center text-xs mb-4">
-            Ahora tus recordatorios salen desde el correo del sistema. Conecta tu Gmail para que salgan desde <b>tu dirección</b>.
-          </p>
+          {usaSistema ? (
+            <p className="text-center text-xs mb-4">
+              Como administrador, tus recordatorios salen desde el correo del sistema. Puedes conectar otro Gmail si quieres.
+            </p>
+          ) : (
+            <p className="text-center text-sm mb-4 bg-red-50 border border-red-200 text-red-700 rounded-md p-2.5">
+              ⚠️ <b>Aún no has configurado tu correo.</b> No se enviará ningún recordatorio de cobro hasta que conectes tu Gmail.
+            </p>
+          )}
+
+          <p className="text-center text-xs mb-2"><b>Paso 1:</b> crea tu contraseña de aplicación en Google (no es tu contraseña normal).</p>
+          <a href={URL_CLAVES_GOOGLE} target="_blank" rel="noopener noreferrer"
+            className="btn-principal bg-warning-gold text-black! block text-center mt-0 mb-4">
+            🔑 CREAR MI CONTRASEÑA DE APLICACIÓN
+          </a>
+
+          <p className="text-center text-xs mb-2"><b>Paso 2:</b> pega aquí la clave de 16 letras que te dio Google.</p>
           <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
             <div>
               <label className="etiqueta">Tu correo de Gmail</label>
@@ -91,12 +112,9 @@ export default function ConexionCorreo() {
           </div>
           <button type="submit" className="btn-principal bg-accent">🔗 CONECTAR MI GMAIL</button>
           <div className="text-xs text-gray-500 mt-4 leading-relaxed">
-            <b>¿Cómo obtengo la contraseña de aplicación?</b> No es tu contraseña normal de Gmail.
-            <ol className="list-decimal ml-5 mt-1">
-              <li>Activa la verificación en 2 pasos en <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-accent underline">myaccount.google.com/security</a>.</li>
-              <li>Entra a <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-accent underline">myaccount.google.com/apppasswords</a>, escribe un nombre y pulsa Crear.</li>
-              <li>Copia la clave de 16 letras y pégala aquí. Se guarda cifrada.</li>
-            </ol>
+            <b>¿El botón amarillo dice que la opción no está disponible?</b> Primero activa la verificación en 2 pasos en{' '}
+            <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-accent underline">myaccount.google.com/security</a>{' '}
+            y vuelve a pulsarlo. En la pantalla de Google escribe un nombre (por ejemplo «Cobros»), pulsa Crear y copia la clave. Aquí se guarda cifrada.
           </div>
         </form>
       )}

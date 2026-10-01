@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTabla } from '@/lib/useTabla'
 import { confirmar, exito, pedirNumero } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
@@ -40,6 +41,7 @@ export default function TablaSuscripciones({ config, personas }: {
 }) {
   const { filas, cargar, actualizar, insertar, eliminar } = useTabla<Suscripcion>(config.tabla)
   const [hoy] = useState(hoyISO)
+  const router = useRouter()
   const [versionNueva, setVersionNueva] = useState(0)
   const columnas = [config.columnaNombre, config.columnaPersona, ...COLUMNAS_FIJAS]
 
@@ -83,7 +85,7 @@ export default function TablaSuscripciones({ config, personas }: {
   }
 
   async function cobrar() {
-    if (await ejecutarCobro(config.tipoCobro)) await cargar()
+    if (await ejecutarCobro(config.tipoCobro, router.push)) await cargar()
   }
 
   function renderFila(fila: Suscripcion, onCambio: (c: Partial<Suscripcion>) => void, acciones: boolean, key: string) {

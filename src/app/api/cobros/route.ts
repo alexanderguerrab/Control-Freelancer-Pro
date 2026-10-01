@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { etapaPendiente, plantillaDe, rellenarPlantilla, type TipoCobro } from '@/lib/cobros'
-import { configuracionEnvio, mensajeError } from '@/lib/correo'
+import { configuracionEnvio, CORREO_NO_CONFIGURADO, mensajeError } from '@/lib/correo'
 import { hoyISO } from '@/lib/fechas'
 import type { RegistroCobrable, ScriptsCobro } from '@/lib/types'
 
@@ -56,6 +56,20 @@ export async function POST(request: Request) {
     return json({ error: 'Solo el administrador puede ejecutar el cobro SaaS.' }, 403)
   }
 
+  // Lo primero: sin Gmail conectado no se envía nada, haya o no pendientes.
+  const envio = await configuracionEnvio(supabase, esAdmin)
+  if (envio === CORREO_NO_CONFIGURADO) {
+    return json(
+      {
+        codigo: CORREO_NO_CONFIGURADO,
+        error: 'Aún no has configurado tu correo de envío. Conecta tu Gmail en Scripts de Cobro para poder enviar recordatorios.',
+      },
+      409
+    )
+  }
+  if (typeof envio === 'string') return json({ error: envio }, 500)
+  const { transporte } = envio
+
   const scripts = await obtenerScripts(supabase)
   if (!scripts) return json({ error: 'No se pudieron cargar los scripts de cobro.' }, 500)
 
@@ -65,22 +79,16 @@ export async function POST(request: Request) {
   const hayPendientes = destinos.some((d) => etapaPendiente(d.registro, hoy))
   if (!hayPendientes) return json({ mensaje: 'No hay recordatorios pendientes por enviar.', enviados: 0 })
 
-  // Gmail propio del usuario si lo conectó; si no, el SMTP del sistema.
-  const envio = await configuracionEnvio(supabase)
-  if (typeof envio === 'string') return json({ error: envio }, 500)
-  const { transporte } = envio
-
   // Si el SMTP no responde o rechaza las credenciales, se dice aquí con el
   // motivo real en lugar de fallar correo por correo sin explicación.
   try {
     await transporte.verify()
   } catch (e) {
     console.error('SMTP no disponible', e)
-    if (envio.propio) {
-      return json({ error: `Tu Gmail conectado (${envio.direccion}) rechazó la conexión: ${mensajeError(e)}. Vuelve a conectarlo en Scripts de Cobro.` }, 502)
-    }
-    const detalle = esAdmin ? `: ${mensajeError(e)}` : '. Avisa al administrador.'
-    return json({ error: `No se pudo conectar con el servidor de correo${detalle}` }, 502)
+    const mensaje = envio.propio
+      ? `Tu Gmail conectado (${envio.direccion}) rechazó la conexión: ${mensajeError(e)}. Vuelve a conectarlo en Scripts de Cobro.`
+      : `No se pudo conectar con el correo del sistema: ${mensajeError(e)}`
+    return json({ error: mensaje }, 502)
   }
 
   const remitente = await obtenerRemitente(supabase, envio.direccion)
@@ -107,7 +115,7 @@ export async function POST(request: Request) {
     try {
       await transporte.sendMail({
         from: remitente,
-        // Con el correo del sistema, las respuestas deben llegar al usuario.
+        // Solo el admin usa el correo del sistema; sus respuestas van a su cuenta.
         replyTo: envio.propio ? undefined : user.email,
         to: destino.email,
         subject: ASUNTOS[tipo] + (destino.concepto || 'Pendiente'),
@@ -116,7 +124,7 @@ export async function POST(request: Request) {
       enviados++
     } catch (e) {
       console.error('Error enviando recordatorio', destino.email, e)
-      fallidos.push(esAdmin || envio.propio ? `${destino.email} (${mensajeError(e)})` : destino.email)
+      fallidos.push(`${destino.email} (${mensajeError(e)})`)
       continue
     }
 
