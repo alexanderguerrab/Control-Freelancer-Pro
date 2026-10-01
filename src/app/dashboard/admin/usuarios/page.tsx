@@ -13,9 +13,10 @@ const ESTADOS: EstadoUsuario[] = ['Pendiente', 'Autorizado', 'Bloqueado']
 function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
   u: Usuario
   esYo: boolean
-  onGuardar: (cambios: Pick<Usuario, 'telefono' | 'rol' | 'estado'>) => void
+  onGuardar: (cambios: Pick<Usuario, 'cliente' | 'telefono' | 'rol' | 'estado'>) => void
   onEliminar: () => void
 }) {
+  const [cliente, setCliente] = useState(u.cliente ?? '')
   const [telefono, setTelefono] = useState(u.telefono ?? '')
   const [rol, setRol] = useState(u.rol)
   const [estado, setEstado] = useState(u.estado)
@@ -23,6 +24,7 @@ function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
   return (
     <tr>
       <td className="text-[10px]!">{u.id}</td>
+      <td><input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre del cliente..." className="input-tabla w-[170px]" /></td>
       <td>{u.email}</td>
       <td><input value={telefono} onChange={(e) => setTelefono(e.target.value)} className="input-tabla w-[120px]" /></td>
       <td>{u.fecha_registro}</td>
@@ -38,7 +40,7 @@ function FilaUsuario({ u, esYo, onGuardar, onEliminar }: {
       </td>
       <td>
         <div className="flex gap-1.5 justify-center">
-          <button onClick={() => onGuardar({ telefono, rol, estado })} className="btn-icono btn-editar">✏️ Editar</button>
+          <button onClick={() => onGuardar({ cliente: cliente.trim(), telefono, rol, estado })} className="btn-icono btn-editar">✏️ Editar</button>
           <button onClick={onEliminar} className="btn-icono btn-eliminar" disabled={esYo}>🗑️ Eliminar</button>
         </div>
       </td>
@@ -54,7 +56,7 @@ export default function UsuariosSaaSPage() {
     createClient().auth.getUser().then(({ data }) => setMiId(data.user?.id ?? null))
   }, [])
 
-  async function guardar(u: Usuario, cambios: Pick<Usuario, 'telefono' | 'rol' | 'estado'>) {
+  async function guardar(u: Usuario, cambios: Pick<Usuario, 'cliente' | 'telefono' | 'rol' | 'estado'>) {
     if (await actualizar(u.id, cambios)) exito('Usuario actualizado', 'Éxito')
   }
 
@@ -75,14 +77,14 @@ export default function UsuariosSaaSPage() {
         <div className="tabla-contenedor">
           <table className="tabla">
             <thead>
-              <tr>{['UID', 'CORREO', 'TELÉFONO', 'FECHA REGISTRO', 'ROL', 'ESTATUS', 'ACCIÓN'].map((h) => <th key={h}>{h}</th>)}</tr>
+              <tr>{['UID', 'CLIENTE', 'CORREO', 'TELÉFONO', 'FECHA REGISTRO', 'ROL', 'ESTATUS', 'ACCIÓN'].map((h) => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {!usuarios ? (
-                <Cargando columnas={7} texto="Cargando usuarios..." />
+                <Cargando columnas={8} texto="Cargando usuarios..." />
               ) : (
                 usuarios.map((u) => (
-                  <FilaUsuario key={`${u.id}-${u.rol}-${u.estado}-${u.telefono}`} u={u} esYo={u.id === miId}
+                  <FilaUsuario key={`${u.id}-${u.cliente}-${u.rol}-${u.estado}-${u.telefono}`} u={u} esYo={u.id === miId}
                     onGuardar={(c) => guardar(u, c)} onEliminar={() => borrar(u)} />
                 ))
               )}
