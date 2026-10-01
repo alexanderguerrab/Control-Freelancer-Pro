@@ -17,6 +17,9 @@ const PERFIL_VACIO: Perfil = {
   pasarela_1_nombre: '', pasarela_1_url: '',
   pasarela_2_nombre: '', pasarela_2_url: '',
   pasarela_3_nombre: '', pasarela_3_url: '',
+  pasarela_4_nombre: '', pasarela_4_url: '',
+  pasarela_5_nombre: '', pasarela_5_url: '',
+  pasarela_6_nombre: '', pasarela_6_url: '',
 }
 
 // Definido fuera de la página: si se crea dentro, React lo remonta en cada
@@ -99,10 +102,15 @@ export default function PerfilPage() {
           </div>
         ))}
 
-        <div className="banda bg-[#98fb98]">PASARELAS DE PAGO</div>
-        {([1, 2, 3] as const).map((i) => (
+        <div className="banda bg-[#98fb98]">MÉTODOS DE PAGO / PASARELAS</div>
+        <p className="text-center mb-4 text-xs">
+          Escribe los métodos con los que cobras (por ejemplo <b>Pesos Colombianos</b>, <b>Nequi</b>, <b>Zelle</b>).
+          Aparecerán en el menú «Método de Pago» de Finanzas, Cursos y Suscripciones. El enlace es opcional.
+          Si dejas todos vacíos se usa una lista por defecto.
+        </p>
+        {([1, 2, 3, 4, 5, 6] as const).map((i) => (
           <div key={i} className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-            {campo(`Pasarela ${i}`, `pasarela_${i}_nombre`)}
+            {campo(`Método de pago ${i}`, `pasarela_${i}_nombre`)}
             {campo(`Enlace ${i}`, `pasarela_${i}_url`)}
           </div>
         ))}

@@ -32,6 +32,12 @@ export interface Perfil {
   pasarela_2_url: string | null
   pasarela_3_nombre: string | null
   pasarela_3_url: string | null
+  pasarela_4_nombre: string | null
+  pasarela_4_url: string | null
+  pasarela_5_nombre: string | null
+  pasarela_5_url: string | null
+  pasarela_6_nombre: string | null
+  pasarela_6_url: string | null
 }
 
 export interface Cliente {
@@ -70,12 +76,14 @@ export interface Curso extends RegistroCobrable {
   cliente_id: string | null
   nombre: string
   fecha_suscripcion: string | null
+  metodo_pago: string | null
 }
 
 export interface ControlSaaS extends RegistroCobrable {
   usuario_id: string | null
   plan: string
   fecha_suscripcion: string | null
+  metodo_pago: string | null
 }
 
 export interface ScriptsCobro {

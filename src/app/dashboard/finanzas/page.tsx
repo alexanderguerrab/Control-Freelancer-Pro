@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { useMetodosPago } from '@/lib/useMetodosPago'
 import { aviso, error, exito } from '@/lib/alertas'
 import { estadoSuscripcion } from '@/lib/saas'
 import { Cargando, EstadoSuscripcion } from '@/components/ui'
@@ -20,15 +21,13 @@ interface ClienteConSuscripcion {
   suscripcion: SuscripcionCliente | null
 }
 
-const METODOS = ['Zelle', 'Binance', 'PayPal', 'Transferencia', 'Pago Móvil', 'Efectivo']
-
 const PAGO_VACIO = {
   cliente: '',
   plan: 'Mensual' as PlanSaaS,
   fechaSuscripcion: '',
   fechaPago: '',
   periodo: '',
-  metodo: METODOS[0],
+  metodo: '', // vacío = el primero de la lista del perfil
   costo: '',
   recibo: '',
 }
@@ -46,6 +45,7 @@ function ordenar(a: ClienteConSuscripcion, b: ClienteConSuscripcion) {
 export default function FinanzasClientesPage() {
   const [clientes, setClientes] = useState<ClienteConSuscripcion[] | null>(null)
   const [pagos, setPagos] = useState<PagoCliente[] | null>(null)
+  const metodos = useMetodosPago()
   const [busqueda, setBusqueda] = useState('')
   const [pago, setPago] = useState(PAGO_VACIO)
 
@@ -109,7 +109,7 @@ export default function FinanzasClientesPage() {
       p_fecha_suscripcion: pago.fechaSuscripcion,
       p_fecha_pago: pago.fechaPago,
       p_periodo: pago.periodo,
-      p_metodo: pago.metodo,
+      p_metodo: pago.metodo || metodos[0] || '',
       p_monto: Number(pago.costo),
       p_recibo: pago.recibo,
     })
@@ -182,7 +182,10 @@ export default function FinanzasClientesPage() {
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
           <div>
             <label className="etiqueta">Método de Pago</label>
-            <select {...campo('metodo')}>{METODOS.map((m) => <option key={m}>{m}</option>)}</select>
+            <select className="campo" value={pago.metodo || metodos[0] || ''}
+              onChange={(e) => setPago((p) => ({ ...p, metodo: e.target.value }))}>
+              {metodos.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
           </div>
           <div><label className="etiqueta">Costo a Cobrar ($)</label><input type="number" placeholder="Ej: 20" {...campo('costo')} /></div>
         </div>
@@ -210,7 +213,7 @@ export default function FinanzasClientesPage() {
                     <td>{nombrePorId.get(p.cliente_id) ?? '—'}</td>
                     <td>{p.periodo}</td>
                     <td>{p.plan}</td>
-                    <td>{p.metodo}</td>
+                    <td>{p.metodo ?? '—'}</td>
                     <td>${p.monto}</td>
                     <td>
                       {p.recibo_url && (

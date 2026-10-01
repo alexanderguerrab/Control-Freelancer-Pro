@@ -78,6 +78,25 @@ export function InputFechaTabla({ valor, onGuardar }: { valor: string | null; on
   )
 }
 
+/**
+ * Desplegable de método de pago para las tablas. Si la fila guardó un método
+ * que ya no está en la lista del perfil, se conserva como opción para no
+ * perder el dato.
+ */
+export function SelectMetodo({ valor, opciones, onChange }: {
+  valor: string | null
+  opciones: string[]
+  onChange: (v: string | null) => void
+}) {
+  const lista = valor && !opciones.includes(valor) ? [valor, ...opciones] : opciones
+  return (
+    <select value={valor ?? ''} className="select-tabla" onChange={(e) => onChange(e.target.value || null)}>
+      <option value="">-- Método --</option>
+      {lista.map((m) => <option key={m} value={m}>{m}</option>)}
+    </select>
+  )
+}
+
 export function Cargando({ columnas, texto = 'Cargando...' }: { columnas: number; texto?: string }) {
   return (
     <tr>

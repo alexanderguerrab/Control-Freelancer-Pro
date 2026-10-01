@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTabla } from '@/lib/useTabla'
+import { useMetodosPago } from '@/lib/useMetodosPago'
 import { confirmar, exito, pedirNumero } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
 import { hoyISO, sumarMes } from '@/lib/fechas'
 import type { TipoCobro } from '@/lib/cobros'
 import type { RegistroCobrable } from '@/lib/types'
-import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla } from './ui'
+import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla, SelectMetodo } from './ui'
 
 /**
  * Tabla de cuotas recurrentes: la usan Cursos y Suscripciones (tabla
@@ -17,6 +18,7 @@ import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla } 
  */
 interface Suscripcion extends RegistroCobrable {
   fecha_suscripcion: string | null
+  metodo_pago: string | null
   [campo: string]: unknown
 }
 
@@ -33,7 +35,7 @@ export interface ConfigTabla {
   textoBotonCobro: string
 }
 
-const COLUMNAS_FIJAS = ['Monto', 'Cobrado', 'Fecha de Suscripción', 'Fecha de Pago', 'Vence Hoy', 'Vencido 7 Días', 'Vencido 15 Días', 'Comprobante', 'Acciones']
+const COLUMNAS_FIJAS = ['Monto', 'Cobrado', 'Método de Pago', 'Fecha de Suscripción', 'Fecha de Pago', 'Vence Hoy', 'Vencido 7 Días', 'Vencido 15 Días', 'Comprobante', 'Acciones']
 
 export default function TablaSuscripciones({ config, personas }: {
   config: ConfigTabla
@@ -41,6 +43,7 @@ export default function TablaSuscripciones({ config, personas }: {
 }) {
   const { filas, cargar, actualizar, insertar, eliminar } = useTabla<Suscripcion>(config.tabla)
   const [hoy] = useState(hoyISO)
+  const metodos = useMetodosPago()
   const router = useRouter()
   const [versionNueva, setVersionNueva] = useState(0)
   const columnas = [config.columnaNombre, config.columnaPersona, ...COLUMNAS_FIJAS]
@@ -65,6 +68,7 @@ export default function TablaSuscripciones({ config, personas }: {
       [config.campoPersona]: fila[config.campoPersona],
       monto: nuevoMonto ?? fila.monto,
       cobrado: false,
+      metodo_pago: fila.metodo_pago,
       fecha_suscripcion: fila.fecha_suscripcion,
       fecha_pago: sumarMes(base),
     })
@@ -107,6 +111,7 @@ export default function TablaSuscripciones({ config, personas }: {
           <input type="checkbox" checked={fila.cobrado} className="w-4 h-4 cursor-pointer"
             onChange={(e) => onCambio({ cobrado: e.target.checked })} />
         </td>
+        <td><SelectMetodo valor={fila.metodo_pago} opciones={metodos} onChange={(v) => onCambio({ metodo_pago: v })} /></td>
         <td><InputFechaTabla valor={fila.fecha_suscripcion} onGuardar={(v) => onCambio({ fecha_suscripcion: v })} /></td>
         <td><InputFechaTabla valor={fila.fecha_pago} onGuardar={(v) => onCambio({ fecha_pago: v })} /></td>
         {acciones ? <CeldasVencimiento registro={fila} hoy={hoy} /> : <><td /><td /><td /></>}
@@ -128,7 +133,7 @@ export default function TablaSuscripciones({ config, personas }: {
   }
 
   const filaVacia: Suscripcion = {
-    id: '', [config.campoNombre]: '', [config.campoPersona]: null, monto: 0, cobrado: false,
+    id: '', [config.campoNombre]: '', [config.campoPersona]: null, monto: 0, cobrado: false, metodo_pago: null,
     fecha_suscripcion: null, fecha_pago: null, comprobante_url: null,
     aviso_hoy_enviado_at: null, aviso_7d_enviado_at: null, aviso_15d_enviado_at: null,
   }
@@ -140,7 +145,7 @@ export default function TablaSuscripciones({ config, personas }: {
         <button onClick={cobrar} className="btn-cobro">{config.textoBotonCobro}</button>
       </div>
       <div className="tabla-contenedor">
-        <table className="tabla min-w-[1400px]">
+        <table className="tabla min-w-[1550px]">
           <thead>
             <tr>{columnas.map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
