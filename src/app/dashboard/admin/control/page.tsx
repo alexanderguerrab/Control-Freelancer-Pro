@@ -10,9 +10,15 @@ export default function ControlSaaSPage() {
   useEffect(() => {
     createClient()
       .from('usuarios')
-      .select('id, email')
-      .order('email')
-      .then(({ data }) => setUsuarios((data ?? []).map((u) => ({ id: u.id, nombre: u.email ?? u.id }))))
+      .select('id, cliente, email')
+      .then(({ data }) =>
+        setUsuarios(
+          (data ?? [])
+            // Se muestra el nombre del cliente; si aún no tiene, el correo para no dejarlo en blanco.
+            .map((u) => ({ id: u.id, nombre: u.cliente?.trim() || u.email || u.id }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+        )
+      )
   }, [])
 
   return (
@@ -26,9 +32,9 @@ export default function ControlSaaSPage() {
           campoNombre: 'plan',
           campoPersona: 'usuario_id',
           columnaNombre: 'Plan / Servicio',
-          columnaPersona: 'Correo Usuario',
+          columnaPersona: 'Cliente',
           placeholderNombre: 'Plan / Servicio...',
-          opcionVacia: '-- Correo Usuario --',
+          opcionVacia: '-- Cliente --',
           subtitulo: '📊 Gestión de Alumnos y Membresías (SaaS)',
           textoBotonCobro: '🚀 Ejecutar Cobro SaaS',
         }}
