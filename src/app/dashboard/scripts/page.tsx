@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { error, exito } from '@/lib/alertas'
+import ConexionCorreo from '@/components/ConexionCorreo'
 import type { ScriptsCobro } from '@/lib/types'
 
 const PLANTILLAS: { campo: keyof ScriptsCobro; label: string }[] = [
@@ -47,6 +48,7 @@ export default function ScriptsPage() {
   return (
     <div>
       <h1 className="titulo-seccion">✉️ Scripts de Cobro</h1>
+      <ConexionCorreo />
       <form onSubmit={guardar} className="card">
         <div className="bg-[#ffeb3b] text-black text-center font-bold p-2.5 rounded-md mb-2.5">CONFIGURACIÓN DE MENSAJES</div>
         <p className="text-center mb-5 text-xs">

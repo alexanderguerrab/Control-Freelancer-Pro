@@ -1,7 +1,7 @@
-import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { etapaPendiente, plantillaDe, rellenarPlantilla, type TipoCobro } from '@/lib/cobros'
+import { configuracionEnvio, mensajeError } from '@/lib/correo'
 import { hoyISO } from '@/lib/fechas'
 import type { RegistroCobrable, ScriptsCobro } from '@/lib/types'
 
@@ -35,12 +35,6 @@ export const maxDuration = 60
 
 const json = (cuerpo: object, status = 200) => NextResponse.json(cuerpo, { status })
 
-/** Primera línea del error, acotada, para mostrarla en el aviso. */
-function mensajeError(e: unknown): string {
-  const texto = e instanceof Error ? e.message : String(e)
-  return texto.split('\n')[0].slice(0, 200)
-}
-
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
   const tipo = body?.tipo as TipoCobro
@@ -62,14 +56,6 @@ export async function POST(request: Request) {
     return json({ error: 'Solo el administrador puede ejecutar el cobro SaaS.' }, 403)
   }
 
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    return json(
-      { error: 'El envío de correos no está configurado. Define SMTP_HOST, SMTP_USER y SMTP_PASS en las variables de entorno.' },
-      500
-    )
-  }
-
   const scripts = await obtenerScripts(supabase)
   if (!scripts) return json({ error: 'No se pudieron cargar los scripts de cobro.' }, 500)
 
@@ -79,17 +65,10 @@ export async function POST(request: Request) {
   const hayPendientes = destinos.some((d) => etapaPendiente(d.registro, hoy))
   if (!hayPendientes) return json({ mensaje: 'No hay recordatorios pendientes por enviar.', enviados: 0 })
 
-  const puerto = Number(SMTP_PORT ?? 465)
-  const transporte = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: puerto,
-    secure: puerto === 465,
-    // Google muestra la contraseña de aplicación en bloques con espacios.
-    auth: { user: SMTP_USER.trim(), pass: SMTP_PASS.replace(/\s+/g, '') },
-    connectionTimeout: 15_000,
-    greetingTimeout: 15_000,
-    socketTimeout: 20_000,
-  })
+  // Gmail propio del usuario si lo conectó; si no, el SMTP del sistema.
+  const envio = await configuracionEnvio(supabase)
+  if (typeof envio === 'string') return json({ error: envio }, 500)
+  const { transporte } = envio
 
   // Si el SMTP no responde o rechaza las credenciales, se dice aquí con el
   // motivo real en lugar de fallar correo por correo sin explicación.
@@ -97,11 +76,14 @@ export async function POST(request: Request) {
     await transporte.verify()
   } catch (e) {
     console.error('SMTP no disponible', e)
+    if (envio.propio) {
+      return json({ error: `Tu Gmail conectado (${envio.direccion}) rechazó la conexión: ${mensajeError(e)}. Vuelve a conectarlo en Scripts de Cobro.` }, 502)
+    }
     const detalle = esAdmin ? `: ${mensajeError(e)}` : '. Avisa al administrador.'
     return json({ error: `No se pudo conectar con el servidor de correo${detalle}` }, 502)
   }
 
-  const remitente = await obtenerRemitente(supabase, tipo, SMTP_FROM || SMTP_USER)
+  const remitente = await obtenerRemitente(supabase, envio.direccion)
 
   let enviados = 0
   let sinCorreo = 0
@@ -125,7 +107,8 @@ export async function POST(request: Request) {
     try {
       await transporte.sendMail({
         from: remitente,
-        replyTo: user.email,
+        // Con el correo del sistema, las respuestas deben llegar al usuario.
+        replyTo: envio.propio ? undefined : user.email,
         to: destino.email,
         subject: ASUNTOS[tipo] + (destino.concepto || 'Pendiente'),
         text: texto,
@@ -133,7 +116,7 @@ export async function POST(request: Request) {
       enviados++
     } catch (e) {
       console.error('Error enviando recordatorio', destino.email, e)
-      fallidos.push(esAdmin ? `${destino.email} (${mensajeError(e)})` : destino.email)
+      fallidos.push(esAdmin || envio.propio ? `${destino.email} (${mensajeError(e)})` : destino.email)
       continue
     }
 
@@ -159,17 +142,13 @@ export async function POST(request: Request) {
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 /**
- * Todos los correos salen por la cuenta SMTP del sistema. A los cobros de
- * cada freelancer se les pone su marca como nombre visible (Reply-To ya es
- * su correo), para que el cliente sepa de quién viene el recordatorio.
+ * Remitente visible: la marca (o el nombre) del perfil de quien cobra, con
+ * la dirección desde la que realmente sale el correo.
  */
-async function obtenerRemitente(supabase: Supabase, tipo: TipoCobro, base: string): Promise<string> {
-  if (tipo === 'saas') return base
+async function obtenerRemitente(supabase: Supabase, direccion: string): Promise<string> {
   const { data } = await supabase.from('perfil').select('marca, nombre').maybeSingle()
   const nombre = (data?.marca || data?.nombre || '').replace(/["<>\r\n]/g, '').trim()
-  if (!nombre) return base
-  const direccion = base.match(/<([^>]+)>/)?.[1] ?? base
-  return `"${nombre}" <${direccion}>`
+  return nombre ? `"${nombre}" <${direccion}>` : direccion
 }
 
 async function obtenerScripts(supabase: Supabase): Promise<ScriptsCobro | null> {
