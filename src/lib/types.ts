@@ -70,6 +70,7 @@ export interface Proyecto extends RegistroCobrable {
   fecha_recepcion: string | null
   fecha_entrega: string | null
   estado_proceso: EstadoProceso | null
+  metodo_pago: string | null
 }
 
 export interface Curso extends RegistroCobrable {

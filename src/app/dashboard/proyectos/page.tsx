@@ -6,7 +6,8 @@ import { useOpcionesClientes, useTabla } from '@/lib/useTabla'
 import { confirmar } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
 import { hoyISO } from '@/lib/fechas'
-import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla } from '@/components/ui'
+import { useMetodosPago } from '@/lib/useMetodosPago'
+import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla, SelectMetodo } from '@/components/ui'
 import type { EstadoProceso, Proyecto } from '@/lib/types'
 
 const ESTADOS: EstadoProceso[] = ['En Proceso', 'Terminado', 'Pausado']
@@ -15,17 +16,18 @@ const PROYECTO_VACIO: Proyecto = {
   id: '', cliente_id: null, nombre: '', monto: 0, cobrado: false,
   fecha_recepcion: null, fecha_entrega: null, fecha_pago: null, estado_proceso: null,
   aviso_hoy_enviado_at: null, aviso_7d_enviado_at: null, aviso_15d_enviado_at: null,
-  comprobante_url: null,
+  comprobante_url: null, metodo_pago: null,
 }
 
 const COLUMNAS = [
-  'Proyecto', 'Cliente', 'Monto', 'Cobrado', 'F. Rec.', 'F. Entr.', 'F. Pago',
+  'Proyecto', 'Cliente', 'Monto', 'Cobrado', 'Método de Pago', 'F. Rec.', 'F. Entr.', 'F. Pago',
   ...ESTADOS, 'Vence Hoy', 'Vence 7 Días', 'Vence 15 Días', 'Comprobante', '',
 ]
 
-function FilaProyecto({ p, clientes, hoy, onCambio, onBorrar }: {
+function FilaProyecto({ p, clientes, metodos, hoy, onCambio, onBorrar }: {
   p: Proyecto
   clientes: { id: string; nombre: string }[]
+  metodos: string[]
   hoy: string
   onCambio: (cambios: Partial<Proyecto>) => void
   onBorrar?: () => void
@@ -43,6 +45,7 @@ function FilaProyecto({ p, clientes, hoy, onCambio, onBorrar }: {
       <td>
         <input type="checkbox" checked={p.cobrado} onChange={(e) => onCambio({ cobrado: e.target.checked })} className="w-4 h-4 cursor-pointer" />
       </td>
+      <td><SelectMetodo valor={p.metodo_pago} opciones={metodos} onChange={(v) => onCambio({ metodo_pago: v })} /></td>
       <td><InputFechaTabla valor={p.fecha_recepcion} onGuardar={(v) => onCambio({ fecha_recepcion: v })} /></td>
       <td><InputFechaTabla valor={p.fecha_entrega} onGuardar={(v) => onCambio({ fecha_entrega: v })} /></td>
       <td><InputFechaTabla valor={p.fecha_pago} onGuardar={(v) => onCambio({ fecha_pago: v })} /></td>
@@ -64,6 +67,7 @@ function FilaProyecto({ p, clientes, hoy, onCambio, onBorrar }: {
 export default function ProyectosPage() {
   const { filas: proyectos, cargar, actualizar, insertar, eliminar } = useTabla<Proyecto>('proyectos')
   const clientes = useOpcionesClientes()
+  const metodos = useMetodosPago()
   const router = useRouter()
   const [hoy] = useState(hoyISO)
   // Cambia la key de la fila en blanco para vaciarla tras crear un proyecto.
@@ -90,7 +94,7 @@ export default function ProyectosPage() {
           <button onClick={cobrar} className="btn-cobro">🚀 Ejecutar Cobro de Proyectos</button>
         </div>
         <div className="tabla-contenedor">
-          <table className="tabla min-w-[1400px]">
+          <table className="tabla min-w-[1550px]">
             <thead>
               <tr>{COLUMNAS.map((h, i) => <th key={i}>{h}</th>)}</tr>
             </thead>
@@ -100,10 +104,10 @@ export default function ProyectosPage() {
               ) : (
                 <>
                   {proyectos.map((p) => (
-                    <FilaProyecto key={p.id} p={p} clientes={clientes} hoy={hoy}
+                    <FilaProyecto key={p.id} p={p} clientes={clientes} metodos={metodos} hoy={hoy}
                       onCambio={(cambios) => actualizar(p.id, cambios)} onBorrar={() => borrar(p)} />
                   ))}
-                  <FilaProyecto key={`nuevo-${versionNueva}`} p={PROYECTO_VACIO} clientes={clientes} hoy={hoy} onCambio={crear} />
+                  <FilaProyecto key={`nuevo-${versionNueva}`} p={PROYECTO_VACIO} clientes={clientes} metodos={metodos} hoy={hoy} onCambio={crear} />
                 </>
               )}
             </tbody>
