@@ -5,6 +5,7 @@ export type EstadoProceso = 'En Proceso' | 'Terminado' | 'Pausado'
 
 export interface Usuario {
   id: string
+  cliente: string | null
   email: string | null
   telefono: string | null
   rol: Rol
