@@ -42,7 +42,7 @@ export default function TablaSuscripciones({ config, personas }: {
   config: ConfigTabla
   personas: { id: string; nombre: string }[]
 }) {
-  const { filas, cargar, actualizar, insertar, eliminar } = useTabla<Suscripcion>(config.tabla)
+  const { filas, cargar, actualizar, insertar, eliminar } = useTabla<Suscripcion>(config.tabla, 'created_at', false)
   const [hoy] = useState(hoyISO)
   const metodos = useMetodosPago()
   const router = useRouter()
