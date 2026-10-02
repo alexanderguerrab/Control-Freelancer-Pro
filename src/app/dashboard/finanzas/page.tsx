@@ -81,14 +81,25 @@ export default function FinanzasClientesPage() {
 
   useEffect(() => {
     let activo = true
-    obtener().then((r) => {
-      if (!activo) return
-      setClientes(r.clientes)
-      setNombres(r.nombres)
-      setPagos(r.pagos)
-    })
+    const recargarDatos = () => {
+      obtener().then((r) => {
+        if (!activo) return
+        setClientes(r.clientes)
+        setNombres(r.nombres)
+        setPagos(r.pagos)
+      })
+    }
+    recargarDatos()
+    // Al volver a esta pestaña (p. ej. después de editar Cursos y Suscripciones) se refresca.
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') recargarDatos()
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
     return () => {
       activo = false
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
     }
   }, [obtener])
 
