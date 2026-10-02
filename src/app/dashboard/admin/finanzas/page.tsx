@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { useMetodosPago } from '@/lib/useMetodosPago'
-import { aviso, error, exito } from '@/lib/alertas'
 import { estadoSuscripcion } from '@/lib/saas'
 import { Cargando, EstadoSuscripcion } from '@/components/ui'
-import type { PlanSaaS, SuscripcionSaaS } from '@/lib/types'
+import type { PagoSaaS, SuscripcionSaaS } from '@/lib/types'
 
 interface UsuarioConSuscripcion {
   id: string
@@ -15,47 +13,46 @@ interface UsuarioConSuscripcion {
   suscripcion: SuscripcionSaaS | null
 }
 
-const PAGO_VACIO = {
-  usuario: '',
-  plan: 'Mensual' as PlanSaaS,
-  fechaSuscripcion: '',
-  fechaPago: '',
-  periodo: '',
-  metodo: '', // vacío = el primero de la lista del perfil
-  costo: '',
-  recibo: '',
+interface Datos {
+  usuarios: UsuarioConSuscripcion[]
+  nombres: Map<string, string>
+  pagos: PagoSaaS[]
 }
 
 export default function FinanzasSaaSPage() {
-  const [usuarios, setUsuarios] = useState<UsuarioConSuscripcion[] | null>(null)
-  const metodos = useMetodosPago()
-  const [busqueda, setBusqueda] = useState('')
-  const [pago, setPago] = useState(PAGO_VACIO)
+  const [datos, setDatos] = useState<Datos | null>(null)
 
-  const obtener = useCallback(async (): Promise<UsuarioConSuscripcion[]> => {
+  const obtener = useCallback(async (): Promise<Datos> => {
     const supabase = createClient()
-    const [{ data: lista }, { data: suscripciones }] = await Promise.all([
+    const [{ data: lista }, { data: suscripciones }, { data: historial }] = await Promise.all([
       supabase.from('usuarios').select('id, cliente, email').eq('estado', 'Autorizado'),
       supabase.from('suscripciones_saas').select('*'),
+      // Lo más reciente (último registrado) arriba.
+      supabase.from('pagos_saas').select('*').order('created_at', { ascending: false }).limit(100),
     ])
     const porUsuario = new Map((suscripciones ?? []).map((s) => [s.usuario_id, s as SuscripcionSaaS]))
-    // Igual que en Finanzas y Cobros: el nombre es lo principal y el correo va debajo.
+    // El nombre es lo principal y el correo va debajo.
     // Si el usuario aún no tiene nombre, se usa el correo para no dejarlo en blanco.
-    return (lista ?? [])
+    const usuarios = (lista ?? [])
       .map((u) => ({
-        id: u.id,
-        nombre: u.cliente?.trim() || u.email || u.id,
-        email: u.email ?? '',
+        id: u.id as string,
+        nombre: (u.cliente?.trim() || u.email || u.id) as string,
+        email: (u.email ?? '') as string,
         suscripcion: porUsuario.get(u.id) ?? null,
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+    return {
+      usuarios,
+      nombres: new Map(usuarios.map((u) => [u.id, u.nombre])),
+      pagos: (historial ?? []) as PagoSaaS[],
+    }
   }, [])
 
   useEffect(() => {
     let activo = true
     const recargar = () => {
-      obtener().then((lista) => {
-        if (activo) setUsuarios(lista)
+      obtener().then((d) => {
+        if (activo) setDatos(d)
       })
     }
     recargar()
@@ -72,39 +69,8 @@ export default function FinanzasSaaSPage() {
     }
   }, [obtener])
 
-  const filtrados = (usuarios ?? []).filter((u) =>
-    `${u.nombre} ${u.email}`.toLowerCase().includes(busqueda.toLowerCase())
-  )
-
-  function campo(nombre: keyof typeof PAGO_VACIO) {
-    return {
-      value: pago[nombre],
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-        setPago((p) => ({ ...p, [nombre]: e.target.value })),
-      className: 'campo',
-    }
-  }
-
-  async function registrar(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!pago.usuario || !pago.fechaSuscripcion || !pago.fechaPago || !pago.costo) {
-      return aviso('Selecciona el cliente, las fechas y el costo.')
-    }
-    const { error: err } = await createClient().rpc('registrar_pago_saas', {
-      p_usuario: pago.usuario,
-      p_plan: pago.plan,
-      p_fecha_suscripcion: pago.fechaSuscripcion,
-      p_fecha_pago: pago.fechaPago,
-      p_periodo: pago.periodo,
-      p_metodo: pago.metodo || metodos[0] || '',
-      p_monto: Number(pago.costo),
-      p_recibo: pago.recibo,
-    })
-    if (err) return error(err.message)
-    exito('Pago registrado y mes sincronizado.', '¡Pago Exitoso!')
-    setPago((p) => ({ ...p, fechaSuscripcion: '', fechaPago: '', periodo: '', recibo: '' }))
-    setUsuarios(await obtener())
-  }
+  const usuarios = datos?.usuarios
+  const pagos = datos?.pagos
 
   return (
     <div>
@@ -138,48 +104,44 @@ export default function FinanzasSaaSPage() {
             </tbody>
           </table>
         </div>
+        <p className="text-xs text-gray-400 mt-3 text-center">
+          Los pagos se registran en Control Suscripciones Admin (casilla Cobrado) y aparecen aquí automáticamente.
+        </p>
       </div>
 
-      <form onSubmit={registrar} className="card-ancha mt-5">
-        <h3 className="text-success text-center font-semibold mb-4">💰 GESTIÓN DE PAGOS E INGRESOS</h3>
-        <label className="etiqueta">Buscar Cliente Rápido</label>
-        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Escribe para filtrar clientes..." className="campo" />
-
-        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div>
-            <label className="etiqueta">Seleccionar Cliente</label>
-            <select {...campo('usuario')}>
-              <option value="">-- Selecciona un Cliente --</option>
-              {filtrados.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="etiqueta">Suscripción</label>
-            <select {...campo('plan')}>
-              <option value="Mensual">Mensual</option>
-              <option value="Anual">Anual</option>
-            </select>
-          </div>
+      <div className="card-ancha mt-5">
+        <div className="bg-warning-gold p-2 font-bold text-center text-sm">HISTORIAL DE PAGOS</div>
+        <div className="tabla-contenedor mt-2">
+          <table className="tabla min-w-[800px]">
+            <thead>
+              <tr>{['FECHA DE PAGO', 'CLIENTE', 'PERIODO', 'PLAN', 'MÉTODO', 'MONTO', 'RECIBO'].map((h) => <th key={h}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {!pagos ? (
+                <Cargando columnas={7} />
+              ) : pagos.length === 0 ? (
+                <Cargando columnas={7} texto="Todavía no hay pagos registrados." />
+              ) : (
+                pagos.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.fecha_pago}</td>
+                    <td>{datos?.nombres.get(p.usuario_id) ?? '—'}</td>
+                    <td>{p.periodo}</td>
+                    <td>{p.plan}</td>
+                    <td>{p.metodo ?? '—'}</td>
+                    <td>${p.monto}</td>
+                    <td>
+                      {p.recibo_url && (
+                        <a href={p.recibo_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-        <div className="grid grid-cols-3 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div><label className="etiqueta">Fecha de Suscripción</label><input type="date" {...campo('fechaSuscripcion')} /></div>
-          <div><label className="etiqueta">Fecha de Pago</label><input type="date" {...campo('fechaPago')} /></div>
-          <div><label className="etiqueta">Periodo Abonado</label><input placeholder="Ej: Septiembre 2026" {...campo('periodo')} /></div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div>
-            <label className="etiqueta">Método de Pago</label>
-            <select className="campo" value={pago.metodo || metodos[0] || ''}
-              onChange={(e) => setPago((p) => ({ ...p, metodo: e.target.value }))}>
-              {metodos.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div><label className="etiqueta">Costo a Cobrar ($)</label><input type="number" placeholder="Ej: 20" {...campo('costo')} /></div>
-        </div>
-        <label className="etiqueta">Enlace de Comprobante (Drive/Imgur)</label>
-        <input placeholder="URL del recibo" {...campo('recibo')} />
-        <button type="submit" className="btn-principal">Registrar Pago y Sincronizar Mes</button>
-      </form>
+      </div>
     </div>
   )
 }
