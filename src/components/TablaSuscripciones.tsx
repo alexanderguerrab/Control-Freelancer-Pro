@@ -6,7 +6,7 @@ import { useTabla } from '@/lib/useTabla'
 import { useMetodosPago } from '@/lib/useMetodosPago'
 import { confirmar, exito, pedirNumero } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
-import { hoyISO, sumarMes } from '@/lib/fechas'
+import { fechaPagoDeCiclo, hoyISO, siguienteCiclo, TIPOS_SUSCRIPCION, type TipoSuscripcion } from '@/lib/fechas'
 import type { TipoCobro } from '@/lib/cobros'
 import type { RegistroCobrable } from '@/lib/types'
 import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla, SelectMetodo } from './ui'
@@ -17,6 +17,7 @@ import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla, S
  * por usuario del sistema). Ambas funcionaban igual en el legacy.
  */
 interface Suscripcion extends RegistroCobrable {
+  tipo_suscripcion: TipoSuscripcion | null
   fecha_suscripcion: string | null
   metodo_pago: string | null
   [campo: string]: unknown
@@ -35,7 +36,7 @@ export interface ConfigTabla {
   textoBotonCobro: string
 }
 
-const COLUMNAS_FIJAS = ['Monto', 'Cobrado', 'Método de Pago', 'Fecha de Suscripción', 'Fecha de Pago', 'Vence Hoy', 'Vencido 7 Días', 'Vencido 15 Días', 'Comprobante', 'Acciones']
+const COLUMNAS_FIJAS = ['Tipo de Suscripción', 'Monto', 'Cobrado', 'Método de Pago', 'Fecha de Suscripción', 'Fecha de Pago', 'Vence Hoy', 'Vencido 7 Días', 'Vencido 15 Días', 'Comprobante', 'Acciones']
 
 export default function TablaSuscripciones({ config, personas }: {
   config: ConfigTabla
@@ -48,29 +49,41 @@ export default function TablaSuscripciones({ config, personas }: {
   const [versionNueva, setVersionNueva] = useState(0)
   const columnas = [config.columnaNombre, config.columnaPersona, ...COLUMNAS_FIJAS]
 
-  // Al marcar como cobrado sin fecha de pago se pone la de hoy (legacy).
+  // Al cambiar la fecha de suscripción o el tipo, la fecha de pago se recalcula:
+  // mensual = mismo día del mes siguiente; anual = la misma fecha. Después se
+  // puede ajustar a mano. Al marcar como cobrado sin fecha de pago se usa hoy (legacy).
   function completar(fila: Partial<Suscripcion> | null, cambios: Partial<Suscripcion>) {
-    if (cambios.cobrado === true && !fila?.fecha_pago && !cambios.fecha_pago) {
-      return { ...cambios, fecha_pago: hoy }
+    const resultado = { ...cambios }
+    const cambiaCiclo = 'fecha_suscripcion' in cambios || 'tipo_suscripcion' in cambios
+    const inicio = 'fecha_suscripcion' in cambios ? cambios.fecha_suscripcion : fila?.fecha_suscripcion
+    if (cambiaCiclo && inicio && !('fecha_pago' in cambios)) {
+      const tipo = cambios.tipo_suscripcion ?? fila?.tipo_suscripcion ?? 'Mensual'
+      resultado.fecha_pago = fechaPagoDeCiclo(inicio, tipo)
     }
-    return cambios
+    if (cambios.cobrado === true && !fila?.fecha_pago && !resultado.fecha_pago) {
+      resultado.fecha_pago = hoy
+    }
+    return resultado
   }
 
   async function crear(cambios: Partial<Suscripcion>) {
     if (await insertar(completar(null, cambios))) setVersionNueva((v) => v + 1)
   }
 
-  // generarSiguienteMesCurso: copia la fila con la fecha de pago un mes después.
+  // Renovar abre un ciclo nuevo: su fecha de suscripción es donde terminó el
+  // anterior (la fecha de pago en mensual, un año después en anual) y su
+  // fecha de pago sale de ahí.
   async function renovar(fila: Suscripcion, nuevoMonto?: number) {
-    const base = fila.fecha_pago || fila.fecha_suscripcion || hoy
+    const tipo = fila.tipo_suscripcion ?? 'Mensual'
+    const ciclo = siguienteCiclo(fila.fecha_suscripcion, fila.fecha_pago, tipo, hoy)
     const ok = await insertar({
       [config.campoNombre]: fila[config.campoNombre],
       [config.campoPersona]: fila[config.campoPersona],
       monto: nuevoMonto ?? fila.monto,
       cobrado: false,
       metodo_pago: fila.metodo_pago,
-      fecha_suscripcion: fila.fecha_suscripcion,
-      fecha_pago: sumarMes(base),
+      tipo_suscripcion: tipo,
+      ...ciclo,
     })
     if (ok) exito('Se ha generado el nuevo periodo.', '¡Éxito!')
   }
@@ -78,7 +91,7 @@ export default function TablaSuscripciones({ config, personas }: {
   async function renovarConPrecio(fila: Suscripcion) {
     const monto = await pedirNumero(
       'Nuevo Precio o Ajuste de Suscripción',
-      'Ingrese el nuevo precio para generar el renglón del mes siguiente:',
+      'Ingrese el nuevo precio para generar el renglón del siguiente periodo:',
       'Ej. 25'
     )
     if (monto !== null) await renovar(fila, monto)
@@ -106,6 +119,12 @@ export default function TablaSuscripciones({ config, personas }: {
             {personas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
         </td>
+        <td>
+          <select value={fila.tipo_suscripcion ?? 'Mensual'} className="select-tabla"
+            onChange={(e) => onCambio({ tipo_suscripcion: e.target.value as TipoSuscripcion })}>
+            {TIPOS_SUSCRIPCION.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </td>
         <td><InputMonto valor={fila.monto} onGuardar={(v) => onCambio({ monto: v })} /></td>
         <td>
           <input type="checkbox" checked={fila.cobrado} className="w-4 h-4 cursor-pointer"
@@ -122,8 +141,8 @@ export default function TablaSuscripciones({ config, personas }: {
         <td>
           {acciones && (
             <div className="flex gap-1.5 justify-center">
-              <button onClick={() => renovar(fila)} className="btn-icono btn-renovar" title="Renovar Mes Siguiente">🔄 Renovar</button>
-              <button onClick={() => renovarConPrecio(fila)} className="btn-icono btn-precio" title="Nuevo Precio / Mes Siguiente">💵 Precio</button>
+              <button onClick={() => renovar(fila)} className="btn-icono btn-renovar" title={fila.tipo_suscripcion === 'Anual' ? 'Renovar por un año' : 'Renovar por 30 días (mes siguiente)'}>🔄 Renovar</button>
+              <button onClick={() => renovarConPrecio(fila)} className="btn-icono btn-precio" title="Nuevo precio / siguiente periodo">💵 Precio</button>
               <button onClick={() => borrar(fila)} className="btn-icono btn-eliminar" title="Eliminar Registro">🗑️ Borrar</button>
             </div>
           )}
@@ -133,7 +152,7 @@ export default function TablaSuscripciones({ config, personas }: {
   }
 
   const filaVacia: Suscripcion = {
-    id: '', [config.campoNombre]: '', [config.campoPersona]: null, monto: 0, cobrado: false, metodo_pago: null,
+    id: '', [config.campoNombre]: '', [config.campoPersona]: null, tipo_suscripcion: 'Mensual', monto: 0, cobrado: false, metodo_pago: null,
     fecha_suscripcion: null, fecha_pago: null, comprobante_url: null,
     aviso_hoy_enviado_at: null, aviso_7d_enviado_at: null, aviso_15d_enviado_at: null,
   }
@@ -145,7 +164,7 @@ export default function TablaSuscripciones({ config, personas }: {
         <button onClick={cobrar} className="btn-cobro">{config.textoBotonCobro}</button>
       </div>
       <div className="tabla-contenedor">
-        <table className="tabla min-w-[1550px]">
+        <table className="tabla min-w-[1700px]">
           <thead>
             <tr>{columnas.map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
