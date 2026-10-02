@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { useMetodosPago } from '@/lib/useMetodosPago'
-import { aviso, error, exito } from '@/lib/alertas'
 import { estadoSuscripcion } from '@/lib/saas'
 import { Cargando, EstadoSuscripcion } from '@/components/ui'
-import type { PagoCliente, PlanSaaS, SuscripcionCliente } from '@/lib/types'
+import type { PagoCliente, SuscripcionCliente } from '@/lib/types'
 
 /**
  * Finanzas del freelancer sobre SUS clientes: es el equivalente de
@@ -19,17 +17,6 @@ interface ClienteConSuscripcion {
   nombre: string
   email: string | null
   suscripcion: SuscripcionCliente | null
-}
-
-const PAGO_VACIO = {
-  cliente: '',
-  plan: 'Mensual' as PlanSaaS,
-  fechaSuscripcion: '',
-  fechaPago: '',
-  periodo: '',
-  metodo: '', // vacío = el primero de la lista del perfil
-  costo: '',
-  recibo: '',
 }
 
 /** Vencidos primero, luego por próximo pago; los que no tienen plan al final. */
@@ -46,9 +33,6 @@ export default function FinanzasClientesPage() {
   const [clientes, setClientes] = useState<ClienteConSuscripcion[] | null>(null)
   const [pagos, setPagos] = useState<PagoCliente[] | null>(null)
   const [nombres, setNombres] = useState<Map<string, string>>(new Map())
-  const metodos = useMetodosPago()
-  const [busqueda, setBusqueda] = useState('')
-  const [pago, setPago] = useState(PAGO_VACIO)
 
   const obtener = useCallback(async () => {
     const supabase = createClient()
@@ -56,7 +40,7 @@ export default function FinanzasClientesPage() {
       supabase.from('clientes').select('id, nombre, email').order('nombre'),
       supabase.from('suscripciones_clientes').select('*'),
       supabase.from('cursos').select('cliente_id'),
-      supabase.from('pagos_clientes').select('*').order('fecha_pago', { ascending: false }).limit(100),
+      supabase.from('pagos_clientes').select('*').order('created_at', { ascending: false }).limit(100),
     ])
     const porCliente = new Map((suscripciones ?? []).map((s) => [s.cliente_id, s as SuscripcionCliente]))
     // Aquí solo van clientes con suscripción: los que tienen un servicio en
@@ -103,47 +87,7 @@ export default function FinanzasClientesPage() {
     }
   }, [obtener])
 
-  async function recargar() {
-    const r = await obtener()
-    setClientes(r.clientes)
-    setNombres(r.nombres)
-    setPagos(r.pagos)
-  }
-
   const nombrePorId = nombres
-  const filtrados = (clientes ?? []).filter((c) =>
-    `${c.nombre} ${c.email ?? ''}`.toLowerCase().includes(busqueda.toLowerCase())
-  )
-
-  function campo(nombre: keyof typeof PAGO_VACIO) {
-    return {
-      value: pago[nombre],
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-        setPago((p) => ({ ...p, [nombre]: e.target.value })),
-      className: 'campo',
-    }
-  }
-
-  async function registrar(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!pago.cliente || !pago.fechaSuscripcion || !pago.fechaPago || !pago.costo) {
-      return aviso('Selecciona el cliente, las fechas y el costo.')
-    }
-    const { error: err } = await createClient().rpc('registrar_pago_cliente', {
-      p_cliente: pago.cliente,
-      p_plan: pago.plan,
-      p_fecha_suscripcion: pago.fechaSuscripcion,
-      p_fecha_pago: pago.fechaPago,
-      p_periodo: pago.periodo,
-      p_metodo: pago.metodo || metodos[0] || '',
-      p_monto: Number(pago.costo),
-      p_recibo: pago.recibo,
-    })
-    if (err) return error(err.message)
-    exito('Pago registrado y mes sincronizado.', '¡Pago Exitoso!')
-    setPago((p) => ({ ...p, fechaSuscripcion: '', fechaPago: '', periodo: '', recibo: '' }))
-    await recargar()
-  }
 
   return (
     <div>
@@ -178,47 +122,6 @@ export default function FinanzasClientesPage() {
           Aquí solo se listan clientes con suscripción (se agregan en Cursos y Suscripciones). Los proyectos son de pago único y se cobran desde Proyectos y Finanzas.
         </p>
       </div>
-
-      <form onSubmit={registrar} className="card-ancha mt-5">
-        <h3 className="text-success text-center font-semibold mb-4">💰 GESTIÓN DE PAGOS E INGRESOS</h3>
-        <label className="etiqueta">Buscar Cliente Rápido</label>
-        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Escribe para filtrar clientes..." className="campo" />
-
-        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div>
-            <label className="etiqueta">Seleccionar Cliente</label>
-            <select {...campo('cliente')}>
-              <option value="">-- Selecciona un Cliente --</option>
-              {filtrados.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="etiqueta">Suscripción</label>
-            <select {...campo('plan')}>
-              <option value="Mensual">Mensual</option>
-              <option value="Anual">Anual</option>
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div><label className="etiqueta">Fecha de Suscripción</label><input type="date" {...campo('fechaSuscripcion')} /></div>
-          <div><label className="etiqueta">Fecha de Pago</label><input type="date" {...campo('fechaPago')} /></div>
-          <div><label className="etiqueta">Periodo Abonado</label><input placeholder="Ej: Septiembre 2026" {...campo('periodo')} /></div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          <div>
-            <label className="etiqueta">Método de Pago</label>
-            <select className="campo" value={pago.metodo || metodos[0] || ''}
-              onChange={(e) => setPago((p) => ({ ...p, metodo: e.target.value }))}>
-              {metodos.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div><label className="etiqueta">Costo a Cobrar ($)</label><input type="number" placeholder="Ej: 20" {...campo('costo')} /></div>
-        </div>
-        <label className="etiqueta">Enlace de Comprobante (Drive/Imgur)</label>
-        <input placeholder="URL del recibo" {...campo('recibo')} />
-        <button type="submit" className="btn-principal">Registrar Pago y Sincronizar Mes</button>
-      </form>
 
       <div className="card-ancha mt-5">
         <div className="bg-warning-gold p-2 font-bold text-center text-sm">HISTORIAL DE PAGOS DE MIS CLIENTES</div>
