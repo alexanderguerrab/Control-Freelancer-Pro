@@ -51,19 +51,28 @@ export default function FinanzasClientesPage() {
 
   const obtener = useCallback(async () => {
     const supabase = createClient()
-    const [{ data: lista }, { data: suscripciones }, { data: historial }] = await Promise.all([
+    const [{ data: lista }, { data: suscripciones }, { data: servicios }, { data: proyectos }, { data: historial }] = await Promise.all([
       supabase.from('clientes').select('id, nombre, email').order('nombre'),
       supabase.from('suscripciones_clientes').select('*'),
+      supabase.from('cursos').select('cliente_id'),
+      supabase.from('proyectos').select('cliente_id'),
       supabase.from('pagos_clientes').select('*').order('fecha_pago', { ascending: false }).limit(100),
     ])
     const porCliente = new Map((suscripciones ?? []).map((s) => [s.cliente_id, s as SuscripcionCliente]))
-    const conSuscripcion: ClienteConSuscripcion[] = (lista ?? []).map((c) => ({
-      id: c.id,
-      nombre: c.nombre,
-      email: c.email,
-      suscripcion: porCliente.get(c.id) ?? null,
-    }))
-    return { clientes: conSuscripcion.sort(ordenar), pagos: (historial ?? []) as PagoCliente[] }
+    // Los proyectos son trabajos únicos con su propio control de pago en
+    // Proyectos y Finanzas: un cliente que solo tiene proyectos (sin plan ni
+    // servicio en Cursos y Suscripciones) no se lista aquí.
+    const conServicio = new Set((servicios ?? []).map((s) => s.cliente_id))
+    const conProyecto = new Set((proyectos ?? []).map((p) => p.cliente_id))
+    const suscritos: ClienteConSuscripcion[] = (lista ?? [])
+      .filter((c) => porCliente.has(c.id) || conServicio.has(c.id) || !conProyecto.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        nombre: c.nombre,
+        email: c.email,
+        suscripcion: porCliente.get(c.id) ?? null,
+      }))
+    return { clientes: suscritos.sort(ordenar), pagos: (historial ?? []) as PagoCliente[] }
   }, [])
 
   useEffect(() => {
@@ -149,7 +158,7 @@ export default function FinanzasClientesPage() {
           </table>
         </div>
         <p className="text-xs text-gray-400 mt-3 text-center">
-          Los recordatorios de cobro se envían desde Proyectos y Finanzas y desde Cursos y Suscripciones, usando tus Scripts de Cobro.
+          Aquí solo se listan clientes con suscripción. Los proyectos (pago único) se cobran desde Proyectos y Finanzas; los recordatorios usan tus Scripts de Cobro.
         </p>
       </div>
 
