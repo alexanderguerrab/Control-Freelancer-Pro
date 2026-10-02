@@ -65,7 +65,7 @@ function FilaProyecto({ p, clientes, metodos, hoy, onCambio, onBorrar }: {
 }
 
 export default function ProyectosPage() {
-  const { filas: proyectos, cargar, actualizar, insertar, eliminar } = useTabla<Proyecto>('proyectos')
+  const { filas: proyectos, cargar, actualizar, insertar, eliminar } = useTabla<Proyecto>('proyectos', 'created_at', false)
   const clientes = useOpcionesClientes()
   const metodos = useMetodosPago()
   const router = useRouter()
