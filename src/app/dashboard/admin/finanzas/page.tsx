@@ -10,6 +10,7 @@ import type { PlanSaaS, SuscripcionSaaS } from '@/lib/types'
 
 interface UsuarioConSuscripcion {
   id: string
+  nombre: string
   email: string
   suscripcion: SuscripcionSaaS | null
 }
@@ -34,24 +35,46 @@ export default function FinanzasSaaSPage() {
   const obtener = useCallback(async (): Promise<UsuarioConSuscripcion[]> => {
     const supabase = createClient()
     const [{ data: lista }, { data: suscripciones }] = await Promise.all([
-      supabase.from('usuarios').select('id, email').eq('estado', 'Autorizado').order('email'),
+      supabase.from('usuarios').select('id, cliente, email').eq('estado', 'Autorizado'),
       supabase.from('suscripciones_saas').select('*'),
     ])
     const porUsuario = new Map((suscripciones ?? []).map((s) => [s.usuario_id, s as SuscripcionSaaS]))
-    return (lista ?? []).map((u) => ({ id: u.id, email: u.email ?? u.id, suscripcion: porUsuario.get(u.id) ?? null }))
+    // Igual que en Finanzas y Cobros: el nombre es lo principal y el correo va debajo.
+    // Si el usuario aún no tiene nombre, se usa el correo para no dejarlo en blanco.
+    return (lista ?? [])
+      .map((u) => ({
+        id: u.id,
+        nombre: u.cliente?.trim() || u.email || u.id,
+        email: u.email ?? '',
+        suscripcion: porUsuario.get(u.id) ?? null,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
   }, [])
 
   useEffect(() => {
     let activo = true
-    obtener().then((lista) => {
-      if (activo) setUsuarios(lista)
-    })
+    const recargar = () => {
+      obtener().then((lista) => {
+        if (activo) setUsuarios(lista)
+      })
+    }
+    recargar()
+    // Al volver a esta pestaña (p. ej. después de editar Control Suscripciones Admin) se refresca.
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') recargar()
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
     return () => {
       activo = false
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
     }
   }, [obtener])
 
-  const filtrados = (usuarios ?? []).filter((u) => u.email.toLowerCase().includes(busqueda.toLowerCase()))
+  const filtrados = (usuarios ?? []).filter((u) =>
+    `${u.nombre} ${u.email}`.toLowerCase().includes(busqueda.toLowerCase())
+  )
 
   function campo(nombre: keyof typeof PAGO_VACIO) {
     return {
@@ -102,7 +125,10 @@ export default function FinanzasSaaSPage() {
               ) : (
                 usuarios.map((u) => (
                   <tr key={u.id}>
-                    <td>{u.email}</td>
+                    <td>
+                      {u.nombre}
+                      {u.email && u.email !== u.nombre ? <div className="text-xs text-gray-400">{u.email}</div> : null}
+                    </td>
                     <td>{u.suscripcion?.plan ?? 'Sin plan'}</td>
                     <td>{u.suscripcion?.proximo_pago ?? '---'}</td>
                     <td><EstadoSuscripcion estado={estadoSuscripcion(u.suscripcion)} /></td>
@@ -124,7 +150,7 @@ export default function FinanzasSaaSPage() {
             <label className="etiqueta">Seleccionar Cliente</label>
             <select {...campo('usuario')}>
               <option value="">-- Selecciona un Cliente --</option>
-              {filtrados.map((u) => <option key={u.id} value={u.id}>{u.email}</option>)}
+              {filtrados.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           </div>
           <div>
