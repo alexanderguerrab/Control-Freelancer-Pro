@@ -45,34 +45,38 @@ function ordenar(a: ClienteConSuscripcion, b: ClienteConSuscripcion) {
 export default function FinanzasClientesPage() {
   const [clientes, setClientes] = useState<ClienteConSuscripcion[] | null>(null)
   const [pagos, setPagos] = useState<PagoCliente[] | null>(null)
+  const [nombres, setNombres] = useState<Map<string, string>>(new Map())
   const metodos = useMetodosPago()
   const [busqueda, setBusqueda] = useState('')
   const [pago, setPago] = useState(PAGO_VACIO)
 
   const obtener = useCallback(async () => {
     const supabase = createClient()
-    const [{ data: lista }, { data: suscripciones }, { data: servicios }, { data: proyectos }, { data: historial }] = await Promise.all([
+    const [{ data: lista }, { data: suscripciones }, { data: servicios }, { data: historial }] = await Promise.all([
       supabase.from('clientes').select('id, nombre, email').order('nombre'),
       supabase.from('suscripciones_clientes').select('*'),
       supabase.from('cursos').select('cliente_id'),
-      supabase.from('proyectos').select('cliente_id'),
       supabase.from('pagos_clientes').select('*').order('fecha_pago', { ascending: false }).limit(100),
     ])
     const porCliente = new Map((suscripciones ?? []).map((s) => [s.cliente_id, s as SuscripcionCliente]))
-    // Los proyectos son trabajos únicos con su propio control de pago en
-    // Proyectos y Finanzas: un cliente que solo tiene proyectos (sin plan ni
-    // servicio en Cursos y Suscripciones) no se lista aquí.
+    // Aquí solo van clientes con suscripción: los que tienen un servicio en
+    // Cursos y Suscripciones o ya tienen plan registrado. Los proyectos son
+    // trabajos únicos con su propio control de pago y no cuentan; un cliente
+    // sin suscripción (con o sin proyectos) no se lista.
     const conServicio = new Set((servicios ?? []).map((s) => s.cliente_id))
-    const conProyecto = new Set((proyectos ?? []).map((p) => p.cliente_id))
     const suscritos: ClienteConSuscripcion[] = (lista ?? [])
-      .filter((c) => porCliente.has(c.id) || conServicio.has(c.id) || !conProyecto.has(c.id))
+      .filter((c) => porCliente.has(c.id) || conServicio.has(c.id))
       .map((c) => ({
         id: c.id,
         nombre: c.nombre,
         email: c.email,
         suscripcion: porCliente.get(c.id) ?? null,
       }))
-    return { clientes: suscritos.sort(ordenar), pagos: (historial ?? []) as PagoCliente[] }
+    return {
+      clientes: suscritos.sort(ordenar),
+      nombres: new Map((lista ?? []).map((c) => [c.id as string, c.nombre as string])),
+      pagos: (historial ?? []) as PagoCliente[],
+    }
   }, [])
 
   useEffect(() => {
@@ -80,6 +84,7 @@ export default function FinanzasClientesPage() {
     obtener().then((r) => {
       if (!activo) return
       setClientes(r.clientes)
+      setNombres(r.nombres)
       setPagos(r.pagos)
     })
     return () => {
@@ -90,10 +95,11 @@ export default function FinanzasClientesPage() {
   async function recargar() {
     const r = await obtener()
     setClientes(r.clientes)
+    setNombres(r.nombres)
     setPagos(r.pagos)
   }
 
-  const nombrePorId = new Map((clientes ?? []).map((c) => [c.id, c.nombre]))
+  const nombrePorId = nombres
   const filtrados = (clientes ?? []).filter((c) =>
     `${c.nombre} ${c.email ?? ''}`.toLowerCase().includes(busqueda.toLowerCase())
   )
@@ -143,7 +149,7 @@ export default function FinanzasClientesPage() {
               {!clientes ? (
                 <Cargando columnas={4} texto="Cargando estatus de clientes..." />
               ) : clientes.length === 0 ? (
-                <Cargando columnas={4} texto="Aún no tienes clientes. Agrégalos en Registro de Clientes." />
+                <Cargando columnas={4} texto="Aún no hay clientes con suscripción. Agrégalos en Cursos y Suscripciones." />
               ) : (
                 clientes.map((c) => (
                   <tr key={c.id}>
@@ -158,7 +164,7 @@ export default function FinanzasClientesPage() {
           </table>
         </div>
         <p className="text-xs text-gray-400 mt-3 text-center">
-          Aquí solo se listan clientes con suscripción. Los proyectos (pago único) se cobran desde Proyectos y Finanzas; los recordatorios usan tus Scripts de Cobro.
+          Aquí solo se listan clientes con suscripción (se agregan en Cursos y Suscripciones). Los proyectos son de pago único y se cobran desde Proyectos y Finanzas.
         </p>
       </div>
 
