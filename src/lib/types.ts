@@ -77,6 +77,7 @@ export interface Proyecto extends RegistroCobrable {
 export interface Curso extends RegistroCobrable {
   cliente_id: string | null
   nombre: string
+  tipo_suscripcion: PlanSaaS
   fecha_suscripcion: string | null
   metodo_pago: string | null
 }
@@ -84,6 +85,7 @@ export interface Curso extends RegistroCobrable {
 export interface ControlSaaS extends RegistroCobrable {
   usuario_id: string | null
   plan: string
+  tipo_suscripcion: PlanSaaS
   fecha_suscripcion: string | null
   metodo_pago: string | null
 }
