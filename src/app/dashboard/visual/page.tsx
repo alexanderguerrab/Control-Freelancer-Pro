@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { createClient } from '@/utils/supabase/client'
-import { etiquetaMonto } from '@/components/charts'
+import { crearEtiquetaMonto } from '@/components/charts'
 import { Cargando } from '@/components/ui'
 import { MESES, formatoMoneda } from '@/lib/fechas'
 import { cargarMovimientosUsuario } from '@/lib/movimientos'
@@ -11,13 +11,13 @@ import { metricasDashboard } from '@/lib/metricas'
 
 type Metricas = ReturnType<typeof metricasDashboard>
 
-const etiquetasDona = {
+const etiquetasDona = (formatter: (v: number) => string) => ({
   color: '#000000',
   textStrokeColor: '#ffffff',
   textStrokeWidth: 3,
   font: { weight: 'bold' as const, size: 12 },
-  formatter: etiquetaMonto,
-}
+  formatter,
+})
 
 const sombraBlanca = { textShadow: '-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff' }
 
@@ -40,19 +40,20 @@ function Grafico({ titulo, children }: { titulo: string; children: React.ReactNo
 }
 
 export default function DashboardVisualPage() {
-  const [datos, setDatos] = useState<{ m: Metricas; nombre: string } | null>(null)
+  const [datos, setDatos] = useState<{ m: Metricas; nombre: string; moneda: string } | null>(null)
   const hoy = new Date()
 
   useEffect(() => {
     let activo = true
     Promise.all([
       cargarMovimientosUsuario(),
-      createClient().from('perfil').select('nombre, meta_mensual').maybeSingle(),
+      createClient().from('perfil').select('nombre, meta_mensual, moneda').maybeSingle(),
     ]).then(([movimientos, { data: perfil }]) => {
       if (!activo) return
       setDatos({
         m: metricasDashboard(movimientos, Number(perfil?.meta_mensual) || 0, new Date()),
         nombre: perfil?.nombre ?? '',
+        moneda: perfil?.moneda || 'USD',
       })
     })
     return () => {
@@ -61,15 +62,18 @@ export default function DashboardVisualPage() {
   }, [])
 
   const m = datos?.m
+  const moneda = datos?.moneda ?? 'USD'
+  const fm = (v: number) => formatoMoneda(v, moneda)
+  const etiqueta = useMemo(() => crearEtiquetaMonto(moneda), [moneda])
 
   return (
     <div>
       <h1 className="titulo-seccion uppercase">📊 {datos?.nombre ? `Dashboard de ${datos.nombre}` : 'Dashboard'}</h1>
 
       <div className="grid grid-cols-3 gap-4 max-md:grid-cols-1">
-        <Tarjeta titulo="💰 TOTAL COBRADO 💵" valor={formatoMoneda(m?.totalCobrado ?? 0)} color="#2e7d32" />
-        <Tarjeta titulo="⏳ FACTURAS PENDIENTES ⏰" valor={formatoMoneda(m?.pendiente ?? 0)} color="#fbc02d" />
-        <Tarjeta titulo="🚀 PROYECTOS/CURSOS ACTIVOS 🚀" valor={String(m?.activos ?? 0)} color="#1976d2" />
+        <Tarjeta titulo="💰 TOTAL COBRADO 💵" valor={fm(m?.totalCobrado ?? 0)} color="#2e7d32" />
+        <Tarjeta titulo="⏳ POR COBRAR (VENCIDO + ESTE MES) ⏰" valor={fm(m?.pendiente ?? 0)} color="#fbc02d" />
+        <Tarjeta titulo="🚀 PROYECTOS/CURSOS DEL MES 🚀" valor={String(m?.activos ?? 0)} color="#1976d2" />
       </div>
 
       <h2 className="text-center text-2xl font-extrabold text-[#2e7d32] my-5">
@@ -81,10 +85,10 @@ export default function DashboardVisualPage() {
           <Grafico titulo="Ingresos por Cliente">
             <Doughnut
               data={{ labels: m.porCliente.labels, datasets: [{ data: m.porCliente.valores, backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6'] }] }}
-              options={{ responsive: true, maintainAspectRatio: false, plugins: { datalabels: etiquetasDona } }}
+              options={{ responsive: true, maintainAspectRatio: false, plugins: { datalabels: etiquetasDona(etiqueta) } }}
             />
           </Grafico>
-          <Grafico titulo="Meta Mensual">
+          <Grafico titulo="Cobrado vs. por cobrar">
             <Bar
               data={{ labels: ['Cobrado', 'Por cobrar'], datasets: [{ data: [m.totalCobrado, m.pendiente], backgroundColor: ['#ffff00', '#ff00ff'] }] }}
               options={{
@@ -92,35 +96,42 @@ export default function DashboardVisualPage() {
                 maintainAspectRatio: false,
                 plugins: {
                   legend: { display: false },
-                  datalabels: { color: '#000000', anchor: 'end', align: 'top', offset: 5, font: { weight: 'bold', size: 13 }, formatter: etiquetaMonto },
+                  datalabels: { color: '#000000', anchor: 'end', align: 'top', offset: 5, font: { weight: 'bold', size: 13 }, formatter: etiqueta },
                 },
               }}
             />
           </Grafico>
           <Grafico titulo="Gráfico Meta Mensual %">
-            <Doughnut
-              data={{ labels: ['Alcanzado', 'Por alcanzar'], datasets: [{ data: [m.meta.alcanzado, m.meta.porAlcanzar], backgroundColor: ['#2ecc71', '#e74c3c'] }] }}
-              options={{ responsive: true, maintainAspectRatio: false, plugins: { datalabels: etiquetasDona } }}
-            />
+            {m.meta.definida ? (
+              <Doughnut
+                data={{ labels: ['Alcanzado', 'Por alcanzar'], datasets: [{ data: [m.meta.alcanzado, m.meta.porAlcanzar], backgroundColor: ['#2ecc71', '#e74c3c'] }] }}
+                options={{ responsive: true, maintainAspectRatio: false, plugins: { datalabels: etiquetasDona(etiqueta) } }}
+              />
+            ) : (
+              <p className="text-gray-400 text-sm pt-16">Define tu meta mensual en Mi Perfil para ver este gráfico.</p>
+            )}
           </Grafico>
 
           <div className="bg-white rounded-xl shadow-md p-5 flex-1 min-w-[220px] flex flex-col">
             <label className="etiqueta mb-2.5">Meta Mensual Alcanzada Y Por Alcanzar</label>
             <div className="flex flex-col grow text-[11px] rounded overflow-hidden border border-gray-300 font-bold text-black">
               <div className="bg-[#f9d423] text-center p-4 border-b border-gray-300 grow flex items-center justify-center text-xs">
-                META MENSUAL: {formatoMoneda(m.meta.total)}
+                {m.meta.definida ? `META MENSUAL: ${fm(m.meta.total)}` : 'META MENSUAL: SIN DEFINIR (Mi Perfil)'}
               </div>
               <div className="flex text-center grow">
                 <div className="flex-1 bg-success p-4 border-r border-gray-300 flex flex-col items-center justify-center" style={sombraBlanca}>
-                  ALCANZADO: <span className="text-[15px]">{formatoMoneda(m.totalCobrado)}</span>
+                  ALCANZADO: <span className="text-[15px]">{fm(m.totalCobrado)}</span>
                 </div>
                 <div className="flex-1 bg-danger p-4 flex flex-col items-center justify-center" style={sombraBlanca}>
-                  POR ALCANZAR: <span className="text-[15px]">{m.meta.superada ? '¡META SUPERADA!' : formatoMoneda(m.meta.porAlcanzar)}</span>
+                  POR ALCANZAR:{' '}
+                  <span className="text-[15px]">
+                    {!m.meta.definida ? '—' : m.meta.superada ? '¡META SUPERADA!' : fm(m.meta.porAlcanzar)}
+                  </span>
                 </div>
               </div>
               {m.meta.extra > 0 && (
                 <div className="bg-[#f9d423] text-center p-2 border-t border-gray-300">
-                  ¡FELICIDADES! HAS GANADO {formatoMoneda(m.meta.extra)} EXTRAS ESTE MES 🚀
+                  ¡FELICIDADES! HAS GANADO {fm(m.meta.extra)} EXTRAS ESTE MES 🚀
                 </div>
               )}
             </div>
@@ -130,12 +141,12 @@ export default function DashboardVisualPage() {
 
       <div className="card-ancha mt-6">
         <div className="bg-warning-gold text-black p-1.5 font-extrabold text-center text-sm">
-          PROYECTOS Y CUOTAS PENDIENTES DE COBRO
+          PROYECTOS Y CUOTAS PENDIENTES DE COBRO (LAS 5 MÁS ANTIGUAS)
         </div>
         <div className="tabla-contenedor">
           <table className="tabla min-w-0!">
             <thead>
-              <tr><th>PROYECTO / CURSO</th><th>CLIENTE</th><th>MONTO ($)</th></tr>
+              <tr><th>PROYECTO / CURSO</th><th>CLIENTE</th><th>MONTO</th></tr>
             </thead>
             <tbody>
               {!m ? (
@@ -145,9 +156,9 @@ export default function DashboardVisualPage() {
               ) : (
                 m.pendientes.map((p, i) => (
                   <tr key={i}>
-                    <td>{p.concepto}</td>
+                    <td>{p.concepto || '(sin nombre)'}</td>
                     <td>{p.cliente}</td>
-                    <td className="font-bold text-[#d32f2f]!">{formatoMoneda(p.monto)}</td>
+                    <td className="font-bold text-[#d32f2f]!">{fm(p.monto)}</td>
                   </tr>
                 ))
               )}

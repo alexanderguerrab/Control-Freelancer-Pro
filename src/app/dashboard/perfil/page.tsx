@@ -66,9 +66,11 @@ export default function PerfilPage() {
     setGuardando(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    // La moneda es un código ISO de 3 letras (USD, EUR, COP…); si no lo es se usa USD.
+    const moneda = (form.moneda ?? '').trim().toUpperCase()
     const { error: err } = await supabase
       .from('perfil')
-      .upsert({ ...form, owner_id: user?.id, updated_at: new Date().toISOString() })
+      .upsert({ ...form, moneda: /^[A-Z]{3}$/.test(moneda) ? moneda : 'USD', owner_id: user?.id, updated_at: new Date().toISOString() })
     setGuardando(false)
     if (err) return error(err.message)
     exito('Perfil actualizado', '¡Éxito!')
@@ -90,7 +92,7 @@ export default function PerfilPage() {
 
         <div className="banda bg-cyan-100">CONFIGURACIÓN NEGOCIO</div>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-          {campo('Moneda', 'moneda')}
+          {campo('Moneda (código: USD, EUR, COP…)', 'moneda')}
           {campo('Meta Mensual', 'meta_mensual', 'number')}
         </div>
 

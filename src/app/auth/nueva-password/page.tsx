@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { primerRequisitoFallido } from '@/lib/password'
 
 /** Destino del enlace de "¿Olvidaste tu contraseña?" (ya con sesión de recuperación). */
 export default function NuevaPasswordPage() {
@@ -13,8 +14,9 @@ export default function NuevaPasswordPage() {
 
   async function guardar(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      setError('Mínimo 8 caracteres, con mayúscula, minúscula y un carácter especial.')
+    const fallido = primerRequisitoFallido(password)
+    if (fallido) {
+      setError(`La contraseña no cumple: ${fallido.texto.toLowerCase()}`)
       return
     }
     setGuardando(true)

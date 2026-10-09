@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { EstadoSuscripcion } from '@/components/ui'
 import { estadoSuscripcion } from '@/lib/saas'
+import { enlaceSeguro } from '@/lib/urls'
 import type { PagoSaaS, SuscripcionSaaS } from '@/lib/types'
 
 function Caja({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -49,8 +50,8 @@ export default async function SuscripcionPage() {
                     <td>{p.plan}</td>
                     <td>{p.metodo}</td>
                     <td>
-                      {p.recibo_url && (
-                        <a href={p.recibo_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
+                      {enlaceSeguro(p.recibo_url) && (
+                        <a href={enlaceSeguro(p.recibo_url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
                       )}
                     </td>
                   </tr>

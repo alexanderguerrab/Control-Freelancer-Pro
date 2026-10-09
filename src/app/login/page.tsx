@@ -4,13 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { abrirSoporteEmail, WHATSAPP_SOPORTE } from '@/lib/alertas'
-
-const REQUISITOS = [
-  { texto: 'Mínimo 8 caracteres', ok: (p: string) => p.length >= 8 },
-  { texto: 'Al menos 1 letra mayúscula', ok: (p: string) => /[A-Z]/.test(p) },
-  { texto: 'Al menos 1 letra minúscula', ok: (p: string) => /[a-z]/.test(p) },
-  { texto: 'Al menos 1 carácter especial (ej. @, #, !, $)', ok: (p: string) => /[^A-Za-z0-9]/.test(p) },
-]
+import { primerRequisitoFallido, REQUISITOS_PASSWORD as REQUISITOS } from '@/lib/password'
 
 const claseInput = `w-full bg-bg-dark text-white border border-border-dark p-2.5 mb-3 rounded-lg text-center
   text-[15px] outline-none focus:border-login-cyan transition-colors`
@@ -56,7 +50,7 @@ export default function LoginPage() {
   }
 
   async function registrarse() {
-    const fallido = REQUISITOS.find((r) => !r.ok(password))
+    const fallido = primerRequisitoFallido(password)
     if (fallido) {
       setMensaje({ tipo: 'error', texto: `La contraseña no cumple: ${fallido.texto.toLowerCase()}` })
       return

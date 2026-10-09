@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOpcionesClientes, useTabla } from '@/lib/useTabla'
 import { confirmar } from '@/lib/alertas'
@@ -73,8 +73,27 @@ export default function ProyectosPage() {
   // Cambia la key de la fila en blanco para vaciarla tras crear un proyecto.
   const [versionNueva, setVersionNueva] = useState(0)
 
-  async function crear(cambios: Partial<Proyecto>) {
-    if (await insertar(cambios)) setVersionNueva((v) => v + 1)
+  // Lo escrito en la fila en blanco se acumula y el proyecto se crea cuando ya
+  // tiene nombre: sin filas vacías ni duplicados por ediciones rápidas.
+  const [borrador, setBorrador] = useState<Partial<Proyecto>>({})
+  const creando = useRef(false)
+
+  async function cambioEnFilaNueva(cambios: Partial<Proyecto>) {
+    const unido = { ...borrador, ...cambios }
+    if (!(unido.nombre ?? '').trim()) {
+      setBorrador(unido)
+      return
+    }
+    if (creando.current) return
+    creando.current = true
+    try {
+      if (await insertar(unido)) {
+        setBorrador({})
+        setVersionNueva((v) => v + 1)
+      }
+    } finally {
+      creando.current = false
+    }
   }
 
   async function borrar(p: Proyecto) {
@@ -107,14 +126,14 @@ export default function ProyectosPage() {
                     <FilaProyecto key={p.id} p={p} clientes={clientes} metodos={metodos} hoy={hoy}
                       onCambio={(cambios) => actualizar(p.id, cambios)} onBorrar={() => borrar(p)} />
                   ))}
-                  <FilaProyecto key={`nuevo-${versionNueva}`} p={PROYECTO_VACIO} clientes={clientes} metodos={metodos} hoy={hoy} onCambio={crear} />
+                  <FilaProyecto key={`nuevo-${versionNueva}`} p={{ ...PROYECTO_VACIO, ...borrador }} clientes={clientes} metodos={metodos} hoy={hoy} onCambio={cambioEnFilaNueva} />
                 </>
               )}
             </tbody>
           </table>
         </div>
         <p className="text-xs text-gray-400 mt-3 text-center">
-          Escribe en la última fila para agregar un proyecto nuevo.
+          Escribe en la última fila para agregar un proyecto nuevo; se crea al ponerle nombre.
         </p>
       </div>
     </div>

@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { cifrar, limpiarPassword, mensajeError, transporteGmail } from '@/lib/correo'
+import { permitir } from '@/lib/limite'
 
 /**
  * Gmail propio para enviar los cobros. La contraseña de aplicación solo
  * viaja hacia el servidor: se prueba contra Gmail, se cifra y se guarda.
- * Nunca se devuelve al navegador.
+ * Nunca se devuelve al navegador, y la tabla ya no permite leerla desde
+ * el cliente (se guarda y se lee mediante funciones de la base de datos).
  */
 
 // Gmail puede tardar en responder tras varios intentos fallidos.
 export const maxDuration = 60
 
 const json = (cuerpo: object, status = 200) => NextResponse.json(cuerpo, { status })
+
+const EMAIL_VALIDO = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 
 async function sesion() {
   const supabase = await createClient()
@@ -39,10 +43,15 @@ export async function POST(request: Request) {
   const { supabase, user } = await sesion()
   if (!user) return json({ error: 'Sesión no válida.' }, 401)
 
+  // Cada intento abre una conexión con Gmail: se limita para no quemar la IP del servidor.
+  if (!permitir(`correo:${user.id}`, 5)) {
+    return json({ error: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.' }, 429)
+  }
+
   const body = await request.json().catch(() => null)
   const email = String(body?.email ?? '').trim().toLowerCase()
   const password = limpiarPassword(String(body?.password ?? ''))
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !password) {
+  if (email.length > 254 || !EMAIL_VALIDO.test(email) || !password || password.length > 100) {
     return json({ error: 'Escribe tu correo de Gmail y la contraseña de aplicación.' }, 400)
   }
 
@@ -65,9 +74,7 @@ export async function POST(request: Request) {
     return json({ error: mensaje }, 400)
   }
 
-  const { error } = await supabase
-    .from('correo_envio')
-    .upsert({ owner_id: user.id, email, password_cifrada, updated_at: new Date().toISOString() })
+  const { error } = await supabase.rpc('guardar_correo_envio', { p_email: email, p_password_cifrada: password_cifrada })
   if (error) return json({ error: error.message }, 500)
   return json({ email })
 }
@@ -75,7 +82,7 @@ export async function POST(request: Request) {
 export async function DELETE() {
   const { supabase, user } = await sesion()
   if (!user) return json({ error: 'Sesión no válida.' }, 401)
-  const { error } = await supabase.from('correo_envio').delete().eq('owner_id', user.id)
+  const { error } = await supabase.rpc('borrar_correo_envio')
   if (error) return json({ error: error.message }, 500)
   return json({ email: null })
 }

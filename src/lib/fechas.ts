@@ -3,8 +3,9 @@ export const MESES = [
   'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
 ]
 
-/** Años disponibles en los selectores de reportes (igual que el legacy). */
-export const ANIOS_REPORTE = [2026, 2027, 2028, 2029, 2030, 2031, 2032]
+/** Años de los selectores de reportes: 5 atrás y 2 adelante del año actual. */
+const ANIO_ACTUAL = new Date().getFullYear()
+export const ANIOS_REPORTE = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL - 5 + i)
 
 /**
  * Convierte 'yyyy-mm-dd' en una fecha local a medianoche. `new Date('2026-09-28')`
@@ -34,13 +35,6 @@ export function diasDesde(iso: string | null, hoy: string): number | null {
   const ref = parseFecha(hoy)
   if (!fecha || !ref) return null
   return Math.round((ref.getTime() - fecha.getTime()) / 86_400_000)
-}
-
-/** Suma un mes como `Date.setMonth` en Apps Script (31-ene + 1 mes = 3-mar). */
-export function sumarMes(iso: string): string {
-  const fecha = parseFecha(iso) ?? new Date()
-  fecha.setMonth(fecha.getMonth() + 1)
-  return aISO(fecha)
 }
 
 /**
@@ -87,6 +81,20 @@ export function siguienteCiclo(
   return { fecha_suscripcion: inicio, fecha_pago: fechaPagoDeCiclo(inicio, tipo) }
 }
 
-export function formatoMoneda(valor: number): string {
-  return '$' + valor.toLocaleString('es-ES', { maximumFractionDigits: 2 })
+/** Símbolo de una moneda ISO ("USD" → "$", "EUR" → "€"); "$" si no es válida. */
+export function simboloMoneda(moneda: string | null | undefined): string {
+  try {
+    const partes = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: (moneda ?? 'USD').trim().toUpperCase(),
+      currencyDisplay: 'narrowSymbol',
+    }).formatToParts(0)
+    return partes.find((p) => p.type === 'currency')?.value ?? '$'
+  } catch {
+    return '$'
+  }
+}
+
+export function formatoMoneda(valor: number, moneda?: string | null): string {
+  return simboloMoneda(moneda) + valor.toLocaleString('es-ES', { maximumFractionDigits: 2 })
 }

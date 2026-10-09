@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useTabla } from '@/lib/useTabla'
+import { enlaceSeguro } from '@/lib/urls'
 import { confirmar, error, exito } from '@/lib/alertas'
 import { Cargando } from '@/components/ui'
 import type { Cliente } from '@/lib/types'
@@ -12,6 +13,9 @@ const VACIO: FormCliente = {
   nombre: '', email: '', telefono: '', dni: '', pais: '',
   fecha_registro: '', drive_link: '', notas: '',
 }
+
+const CAMPOS = Object.keys(VACIO) as (keyof FormCliente)[]
+const EMAIL_VALIDO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 export default function ClientesPage() {
   const { filas: clientes, actualizar, insertar, eliminar } = useTabla<Cliente>('clientes', 'nombre')
@@ -36,8 +40,17 @@ export default function ClientesPage() {
   async function guardar(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!form.nombre?.trim()) return error('Nombre obligatorio')
+    const email = form.email?.trim()
+    if (email && !EMAIL_VALIDO.test(email)) return error('El email del cliente no es válido.')
 
-    const datos = { ...form, fecha_registro: form.fecha_registro || null }
+    // Solo los campos del formulario, sin espacios sobrantes y con null en lugar de ''.
+    const datos = Object.fromEntries(
+      CAMPOS.map((k) => {
+        const v = form[k]
+        const limpio = typeof v === 'string' ? v.trim() : v
+        return [k, limpio === '' ? null : limpio]
+      })
+    ) as FormCliente
     const ok = editandoId ? await actualizar(editandoId, datos) : await insertar(datos)
     if (!ok) return
     exito(editandoId ? `Cliente ${form.nombre} actualizado.` : 'Cliente guardado', editandoId ? '¡Actualizado!' : '¡Listo!')
@@ -45,9 +58,9 @@ export default function ClientesPage() {
   }
 
   function editar(c: Cliente) {
-    const { id, ...resto } = c
-    setEditandoId(id)
-    setForm(resto)
+    // Se copian solo los campos del formulario (la fila trae owner_id, created_at…).
+    setEditandoId(c.id)
+    setForm(Object.fromEntries(CAMPOS.map((k) => [k, c[k] ?? ''])) as FormCliente)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -116,8 +129,8 @@ export default function ClientesPage() {
                     <td>{c.pais}</td>
                     <td>{c.fecha_registro}</td>
                     <td>
-                      {c.drive_link && (
-                        <a href={c.drive_link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                      {enlaceSeguro(c.drive_link) && (
+                        <a href={enlaceSeguro(c.drive_link) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
                           📂 Ver
                         </a>
                       )}

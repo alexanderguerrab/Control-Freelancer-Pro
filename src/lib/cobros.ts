@@ -25,25 +25,54 @@ export function estadosVencimiento(registro: RegistroCobrable, hoy: string): str
   })
 }
 
+export interface PlanCobro {
+  /** Recordatorio que se envía ahora. */
+  etapa: Etapa
+  /** Etapas anteriores que nunca se enviaron y se marcan como superadas. */
+  omitir: Etapa[]
+}
+
 /**
- * Etapa cuyo recordatorio toca enviar. Como en el legacy, se envía una
- * sola por ejecución y en orden: primero la de hoy, luego 7D y luego 15D.
+ * Qué recordatorio toca enviar: siempre el de la etapa más avanzada ya
+ * alcanzada, para que el texto coincida con el atraso real (a 16 días
+ * sale la plantilla de 15 días, no la de "vence hoy"). Las etapas
+ * anteriores sin enviar se marcan como omitidas. Una sola por ejecución.
  */
-export function etapaPendiente(registro: RegistroCobrable, hoy: string): Etapa | null {
+export function planCobro(registro: RegistroCobrable, hoy: string): PlanCobro | null {
   if (registro.cobrado) return null
   const dias = diasDesde(registro.fecha_pago, hoy)
   if (dias === null) return null
-  return ETAPAS.find((etapa) => dias >= etapa.dias && !registro[etapa.columna]) ?? null
+
+  const alcanzadas = ETAPAS.filter((etapa) => dias >= etapa.dias)
+  const ultima = alcanzadas[alcanzadas.length - 1]
+  if (!ultima || registro[ultima.columna]) return null
+
+  return {
+    etapa: ultima,
+    omitir: alcanzadas.filter((etapa) => etapa !== ultima && !registro[etapa.columna]),
+  }
 }
 
+export function etapaPendiente(registro: RegistroCobrable, hoy: string): Etapa | null {
+  return planCobro(registro, hoy)?.etapa ?? null
+}
+
+/**
+ * Sustituye [Nombre], [Proyecto] y [Monto] en una sola pasada. Usar una
+ * función evita que "$&" o "$1" dentro de un dato se interpreten como
+ * patrones de reemplazo, y que un dato que contenga "[Monto]" se vuelva
+ * a sustituir.
+ */
 export function rellenarPlantilla(
   plantilla: string,
   datos: { nombre: string; proyecto: string; monto: number }
 ): string {
-  return plantilla
-    .replaceAll('[Nombre]', datos.nombre)
-    .replaceAll('[Proyecto]', datos.proyecto)
-    .replaceAll('[Monto]', String(datos.monto))
+  const valores: Record<string, string> = {
+    Nombre: datos.nombre,
+    Proyecto: datos.proyecto,
+    Monto: String(datos.monto),
+  }
+  return plantilla.replace(/\[(Nombre|Proyecto|Monto)\]/g, (_, clave: string) => valores[clave])
 }
 
 export function plantillaDe(scripts: ScriptsCobro, etapa: Etapa): string {

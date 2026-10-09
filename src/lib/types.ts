@@ -59,6 +59,8 @@ export interface RegistroCobrable {
   monto: number
   cobrado: boolean
   fecha_pago: string | null
+  /** Día real en que se cobró (lo fija la base de datos). */
+  fecha_cobro?: string | null
   aviso_hoy_enviado_at: string | null
   aviso_7d_enviado_at: string | null
   aviso_15d_enviado_at: string | null

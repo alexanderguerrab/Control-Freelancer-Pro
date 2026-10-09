@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Bar, Pie } from 'react-chartjs-2'
-import { COLORES_PASTEL, etiquetaMonto, useEsMovil } from './charts'
+import { COLORES_PASTEL, crearEtiquetaMonto, useEsMovil } from './charts'
 import { ANIOS_REPORTE, MESES, formatoMoneda } from '@/lib/fechas'
 import { reporteAnual, reportePorCliente, type Movimiento } from '@/lib/metricas'
+import { useMoneda } from '@/lib/useMoneda'
 
 /**
  * Reporte anual por mes + reparto por cliente de un mes. Lo usan el
@@ -22,6 +23,8 @@ export default function ReporteFinanciero({ cargar, tituloAnual, tituloClientes 
   const [anioCliente, setAnioCliente] = useState(anioInicial)
   const [mesCliente, setMesCliente] = useState(hoy.getMonth())
   const esMovil = useEsMovil()
+  const moneda = useMoneda()
+  const etiquetaMonto = useMemo(() => crearEtiquetaMonto(moneda), [moneda])
 
   useEffect(() => {
     let activo = true
@@ -68,7 +71,7 @@ export default function ReporteFinanciero({ cargar, tituloAnual, tituloClientes 
                   <tr key={i} className="border-b border-gray-100 text-center">
                     <td className="font-bold border-r border-gray-200 p-1.5">{MESES[i]}</td>
                     <td className={`font-bold border-r border-gray-200 p-1.5 ${monto > 0 ? 'bg-[#00ff00]' : ''}`}>
-                      {formatoMoneda(monto)}
+                      {formatoMoneda(monto, moneda)}
                     </td>
                     <td className="p-1.5">
                       <div className="bg-success h-[18px]" style={{ width: `${(monto / maximo) * 100}%` }} />
@@ -79,7 +82,7 @@ export default function ReporteFinanciero({ cargar, tituloAnual, tituloClientes 
               <tfoot>
                 <tr className="bg-success text-black font-bold text-sm border-t-2 border-[#27ae60]">
                   <td className="py-4 px-1.5 border-r border-[#27ae60] text-center">TOTAL DEL AÑO</td>
-                  <td colSpan={2} className="text-center text-lg">{formatoMoneda(anual.total)}</td>
+                  <td colSpan={2} className="text-center text-lg">{formatoMoneda(anual.total, moneda)}</td>
                 </tr>
               </tfoot>
             </table>

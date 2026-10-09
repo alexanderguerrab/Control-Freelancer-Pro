@@ -1,14 +1,17 @@
+import { enlaceSeguro } from './urls'
+
 /**
  * Convierte un enlace de Google Drive en una URL de miniatura que se puede
- * usar en <img> (misma lógica que obtenerDatosPerfil del legacy).
+ * usar en <img>. Cualquier URL que no sea http(s) se descarta.
  */
 export function urlImagenDrive(url: string | null | undefined): string | null {
-  if (!url) return null
-  if (!url.includes('drive.google.com') && !url.includes('google.com/open')) return url
+  const segura = enlaceSeguro(url)
+  if (!segura) return null
 
-  let id = ''
-  if (url.includes('id=')) id = url.split('id=')[1].split('&')[0]
-  else if (url.includes('/d/')) id = url.split('/d/')[1].split('/')[0]
+  const u = new URL(segura)
+  const esDrive = u.hostname === 'drive.google.com' || u.hostname === 'docs.google.com'
+  if (!esDrive) return segura
 
-  return id ? `https://drive.google.com/thumbnail?sz=w500&id=${id}` : url
+  const id = u.searchParams.get('id') ?? u.pathname.match(/\/d\/([^/]+)/)?.[1]
+  return id ? `https://drive.google.com/thumbnail?sz=w500&id=${encodeURIComponent(id)}` : segura
 }

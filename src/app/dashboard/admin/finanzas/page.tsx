@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { estadoSuscripcion } from '@/lib/saas'
+import { enlaceSeguro } from '@/lib/urls'
+import { formatoMoneda } from '@/lib/fechas'
+import { useMoneda } from '@/lib/useMoneda'
 import { Cargando, EstadoSuscripcion } from '@/components/ui'
 import type { PagoSaaS, SuscripcionSaaS } from '@/lib/types'
 
@@ -20,6 +23,7 @@ interface Datos {
 }
 
 export default function FinanzasSaaSPage() {
+  const moneda = useMoneda()
   const [datos, setDatos] = useState<Datos | null>(null)
 
   const obtener = useCallback(async (): Promise<Datos> => {
@@ -129,10 +133,10 @@ export default function FinanzasSaaSPage() {
                     <td>{p.periodo}</td>
                     <td>{p.plan}</td>
                     <td>{p.metodo ?? '—'}</td>
-                    <td>${p.monto}</td>
+                    <td>{formatoMoneda(Number(p.monto) || 0, moneda)}</td>
                     <td>
-                      {p.recibo_url && (
-                        <a href={p.recibo_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
+                      {enlaceSeguro(p.recibo_url) && (
+                        <a href={enlaceSeguro(p.recibo_url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">🧾 Ver Recibo</a>
                       )}
                     </td>
                   </tr>

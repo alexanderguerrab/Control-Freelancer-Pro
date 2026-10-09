@@ -17,6 +17,19 @@ function claveCifrado(): Buffer {
   return clave
 }
 
+/**
+ * Clave anterior (opcional) para rotar CORREO_CLAVE_CIFRADO sin que los
+ * usuarios tengan que reconectar su Gmail: se mueve la clave vieja a
+ * CORREO_CLAVE_CIFRADO_ANTERIOR y se pone una nueva en CORREO_CLAVE_CIFRADO.
+ * Lo que se vuelva a guardar ya se cifra con la nueva.
+ */
+function claveAnterior(): Buffer | null {
+  const bruta = process.env.CORREO_CLAVE_CIFRADO_ANTERIOR
+  if (!bruta) return null
+  const clave = Buffer.from(bruta, 'base64')
+  return clave.length === 32 ? clave : null
+}
+
 /** AES-256-GCM. Formato: iv.tag.datos, cada parte en base64. */
 export function cifrar(texto: string): string {
   const iv = randomBytes(12)
@@ -26,10 +39,21 @@ export function cifrar(texto: string): string {
 }
 
 export function descifrar(cifrado: string): string {
-  const [iv, tag, datos] = cifrado.split('.').map((p) => Buffer.from(p, 'base64'))
-  const descifrador = createDecipheriv('aes-256-gcm', claveCifrado(), iv)
-  descifrador.setAuthTag(tag)
-  return Buffer.concat([descifrador.update(datos), descifrador.final()]).toString('utf8')
+  const partes = cifrado.split('.')
+  if (partes.length !== 3) throw new Error('La contraseña guardada tiene un formato no válido.')
+  const [iv, tag, datos] = partes.map((p) => Buffer.from(p, 'base64'))
+
+  const claves = [claveCifrado(), claveAnterior()].filter((c): c is Buffer => c !== null)
+  for (const clave of claves) {
+    try {
+      const descifrador = createDecipheriv('aes-256-gcm', clave, iv)
+      descifrador.setAuthTag(tag)
+      return Buffer.concat([descifrador.update(datos), descifrador.final()]).toString('utf8')
+    } catch {
+      // Se prueba con la siguiente clave.
+    }
+  }
+  throw new Error('No se pudo descifrar la contraseña guardada. Vuelve a conectar tu Gmail.')
 }
 
 const TIEMPOS = { connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 20_000 }
@@ -69,7 +93,11 @@ export const CORREO_NO_CONFIGURADO = 'correo_no_configurado'
  * Cualquier otro texto devuelto es un mensaje de error.
  */
 export async function configuracionEnvio(supabase: Supabase, esAdmin: boolean): Promise<ConfigEnvio | string> {
-  const { data: propio } = await supabase.from('correo_envio').select('email, password_cifrada').maybeSingle()
+  // El secreto solo se lee por esta función de la base de datos: la tabla
+  // no expone password_cifrada al navegador.
+  const { data: filas, error: errorLectura } = await supabase.rpc('correo_envio_secreto')
+  if (errorLectura) return `No se pudo leer tu correo conectado: ${errorLectura.message}`
+  const propio = (filas as { email: string; password_cifrada: string }[] | null)?.[0]
   if (propio) {
     try {
       return {

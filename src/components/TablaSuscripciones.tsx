@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTabla } from '@/lib/useTabla'
 import { useMetodosPago } from '@/lib/useMetodosPago'
@@ -47,27 +47,52 @@ export default function TablaSuscripciones({ config, personas }: {
   const metodos = useMetodosPago()
   const router = useRouter()
   const [versionNueva, setVersionNueva] = useState(0)
+  // Lo que se va escribiendo en la fila en blanco. El registro se crea cuando
+  // ya tiene nombre, así no aparecen filas vacías ni duplicadas por ediciones rápidas.
+  const [borrador, setBorrador] = useState<Partial<Suscripcion>>({})
+  const creando = useRef(false)
   const columnas = [config.columnaNombre, config.columnaPersona, ...COLUMNAS_FIJAS]
 
   // Al cambiar la fecha de suscripción o el tipo, la fecha de pago se recalcula:
-  // mensual = mismo día del mes siguiente; anual = la misma fecha. Después se
-  // puede ajustar a mano. Al marcar como cobrado sin fecha de pago se usa hoy (legacy).
+  // mensual = mismo día del mes siguiente; anual = la misma fecha. Si solo cambia
+  // el tipo y la fecha de pago se había ajustado a mano, no se pisa. Al marcar
+  // como cobrado sin fecha de pago se usa hoy (legacy).
   function completar(fila: Partial<Suscripcion> | null, cambios: Partial<Suscripcion>) {
     const resultado = { ...cambios }
-    const cambiaCiclo = 'fecha_suscripcion' in cambios || 'tipo_suscripcion' in cambios
-    const inicio = 'fecha_suscripcion' in cambios ? cambios.fecha_suscripcion : fila?.fecha_suscripcion
-    if (cambiaCiclo && inicio && !('fecha_pago' in cambios)) {
-      const tipo = cambios.tipo_suscripcion ?? fila?.tipo_suscripcion ?? 'Mensual'
-      resultado.fecha_pago = fechaPagoDeCiclo(inicio, tipo)
+    const cambiaFecha = 'fecha_suscripcion' in cambios
+    const cambiaTipo = 'tipo_suscripcion' in cambios
+    if ((cambiaFecha || cambiaTipo) && !('fecha_pago' in cambios)) {
+      const inicio = cambiaFecha ? cambios.fecha_suscripcion : fila?.fecha_suscripcion
+      const tipoNuevo = cambios.tipo_suscripcion ?? fila?.tipo_suscripcion ?? 'Mensual'
+      const tipoAnterior = fila?.tipo_suscripcion ?? 'Mensual'
+      const inicioAnterior = fila?.fecha_suscripcion
+      const esAutomatica =
+        !fila?.fecha_pago || (!!inicioAnterior && fila.fecha_pago === fechaPagoDeCiclo(inicioAnterior, tipoAnterior))
+      if (inicio && (cambiaFecha || esAutomatica)) resultado.fecha_pago = fechaPagoDeCiclo(inicio, tipoNuevo)
     }
     if (cambios.cobrado === true && !fila?.fecha_pago && !resultado.fecha_pago) {
-      resultado.fecha_pago = hoy
+      resultado.fecha_pago = hoyISO()
     }
     return resultado
   }
 
-  async function crear(cambios: Partial<Suscripcion>) {
-    if (await insertar(completar(null, cambios))) setVersionNueva((v) => v + 1)
+  async function crear(datos: Partial<Suscripcion>) {
+    if (creando.current) return
+    creando.current = true
+    try {
+      if (await insertar(datos)) {
+        setBorrador({})
+        setVersionNueva((v) => v + 1)
+      }
+    } finally {
+      creando.current = false
+    }
+  }
+
+  function cambioEnFilaNueva(cambios: Partial<Suscripcion>) {
+    const unido = { ...borrador, ...completar(borrador, cambios) }
+    if (String(unido[config.campoNombre] ?? '').trim()) void crear(unido)
+    else setBorrador(unido)
   }
 
   // Renovar abre un ciclo nuevo: su fecha de suscripción es donde terminó el
@@ -75,7 +100,7 @@ export default function TablaSuscripciones({ config, personas }: {
   // fecha de pago sale de ahí.
   async function renovar(fila: Suscripcion, nuevoMonto?: number) {
     const tipo = fila.tipo_suscripcion ?? 'Mensual'
-    const ciclo = siguienteCiclo(fila.fecha_suscripcion, fila.fecha_pago, tipo, hoy)
+    const ciclo = siguienteCiclo(fila.fecha_suscripcion, fila.fecha_pago, tipo, hoyISO())
     const ok = await insertar({
       [config.campoNombre]: fila[config.campoNombre],
       [config.campoPersona]: fila[config.campoPersona],
@@ -174,13 +199,13 @@ export default function TablaSuscripciones({ config, personas }: {
             ) : (
               <>
                 {filas.map((f) => renderFila(f, (c) => actualizar(f.id, completar(f, c)), true, f.id))}
-                {renderFila(filaVacia, crear, false, `nuevo-${versionNueva}`)}
+                {renderFila({ ...filaVacia, ...borrador }, cambioEnFilaNueva, false, `nuevo-${versionNueva}`)}
               </>
             )}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-400 mt-3 text-center">Escribe en la última fila para agregar un registro nuevo.</p>
+      <p className="text-xs text-gray-400 mt-3 text-center">Escribe en la última fila para agregar un registro nuevo; se crea al ponerle nombre.</p>
     </div>
   )
 }
