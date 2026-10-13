@@ -57,6 +57,30 @@ se envía la plantilla de la etapa más avanzada (a 16 días, la de 15 días).
 **Rotar `CORREO_CLAVE_CIFRADO`:** pon la clave vieja en `CORREO_CLAVE_CIFRADO_ANTERIOR` y
 una nueva en `CORREO_CLAVE_CIFRADO`; los Gmail ya conectados siguen funcionando.
 
+## Recordatorios por WhatsApp
+
+Cada fila de **Proyectos y Finanzas**, **Cursos y Suscripciones** y **Control Suscripciones
+Admin** tiene un botón **💬 WhatsApp**. Abre WhatsApp (app o web) con el chat del cliente y el
+mensaje ya escrito con la plantilla que corresponde al atraso (hoy / 7 días / 15 días), las
+mismas de *Scripts de Cobro*. La persona solo pulsa «Enviar», así que no requiere cuenta ni
+configuración y no afecta a los avisos por correo.
+
+- El teléfono sale de *Registro de Clientes* (o de *Gestión Usuarios Admin* en el cobro SaaS).
+- Si los teléfonos están en formato local (`0412-1234567`), define tu **código de país**
+  (p. ej. `58`) en *Mi Perfil → Configuración negocio*.
+
+## Contacto de soporte editable
+
+El correo y el WhatsApp de soporte (menú lateral, login y pantalla de acceso restringido) se
+cambian en **Configuración Admin** (solo administradores); se guardan en la tabla `config_app`.
+No hace falta tocar el código ni volver a desplegar.
+
+## Correo de envío de cada usuario
+
+Cada usuario envía desde **su propio Gmail**; ninguno usa el correo del sistema. Solo el
+administrador cae al SMTP del `.env` si no conectó uno. Al conectar, el formulario ya viene con
+el Gmail con el que el usuario se registró y solo falta pegar la contraseña de aplicación.
+
 ## Configuración en el panel de Supabase
 
 - **Authentication → Sign In / Providers → Email**: exige confirmación de correo, longitud
