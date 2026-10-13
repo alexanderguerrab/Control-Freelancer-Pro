@@ -248,6 +248,19 @@ async function obtenerScripts(supabase: Supabase): Promise<ScriptsCobro | null> 
   return nueva
 }
 
+/**
+ * Forma de las filas que devuelven los select de obtenerDestinos. Esos select
+ * se arman con variables (las columnas de ETAPAS), así que TypeScript no puede
+ * deducir el resultado y se indica aquí a mano.
+ */
+type FilaCobro = RegistroCobrable & {
+  nombre?: string
+  plan?: string | null
+  usuario_id?: string | null
+  estado_proceso?: string | null
+  clientes?: { nombre: string; email: string | null } | null
+}
+
 async function obtenerDestinos(supabase: Supabase, tipo: TipoCobro): Promise<Destino[] | { error: string }> {
   const columnas = `id, monto, cobrado, fecha_pago, ${ETAPAS.map((e) => e.columna).join(', ')}, comprobante_url`
 
@@ -260,7 +273,7 @@ async function obtenerDestinos(supabase: Supabase, tipo: TipoCobro): Promise<Des
     const porId = new Map(
       (usuarios ?? []).map((u) => [u.id, { email: u.email as string | null, estado: u.estado as string }])
     )
-    return (filas ?? []).map((f) => {
+    return ((filas ?? []) as unknown as FilaCobro[]).map((f) => {
       const usuario = f.usuario_id ? porId.get(f.usuario_id) : undefined
       const email = usuario?.email ?? null
       return {
@@ -282,14 +295,14 @@ async function obtenerDestinos(supabase: Supabase, tipo: TipoCobro): Promise<Des
     .not('fecha_pago', 'is', null)
   if (error) return { error: error.message }
 
-  return (filas ?? []).map((f) => {
-    const cliente = f.clientes as unknown as { nombre: string; email: string | null } | null
+  return ((filas ?? []) as unknown as FilaCobro[]).map((f) => {
+    const cliente = f.clientes ?? null
     return {
       registro: f,
       email: cliente?.email ?? null,
       nombre: cliente?.nombre ?? '',
-      concepto: f.nombre,
-      pausado: tipo === 'proyectos' && (f as { estado_proceso?: string | null }).estado_proceso === 'Pausado',
+      concepto: f.nombre ?? '',
+      pausado: tipo === 'proyectos' && f.estado_proceso === 'Pausado',
       activo: true,
     }
   })
