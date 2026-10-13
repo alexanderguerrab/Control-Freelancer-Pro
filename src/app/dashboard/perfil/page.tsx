@@ -10,7 +10,7 @@ type CampoPerfil = Exclude<keyof Perfil, 'owner_id'>
 
 const PERFIL_VACIO: Perfil = {
   nombre: '', marca: '', especialidad: '', logo_url: '',
-  moneda: 'USD', meta_mensual: 0,
+  moneda: 'USD', meta_mensual: 0, codigo_pais_whatsapp: '',
   red_social_1_nombre: '', red_social_1_url: '',
   red_social_2_nombre: '', red_social_2_url: '',
   red_social_3_nombre: '', red_social_3_url: '',
@@ -68,9 +68,15 @@ export default function PerfilPage() {
     const { data: { user } } = await supabase.auth.getUser()
     // La moneda es un código ISO de 3 letras (USD, EUR, COP…); si no lo es se usa USD.
     const moneda = (form.moneda ?? '').trim().toUpperCase()
+    // Código de país de WhatsApp: solo dígitos (1 a 4); vacío se guarda como null.
+    const codigoPais = (form.codigo_pais_whatsapp ?? '').replace(/\D/g, '')
+    if (codigoPais.length > 4) {
+      setGuardando(false)
+      return error('El código de país de WhatsApp debe tener de 1 a 4 dígitos (ej. 58, 57, 52, 1).')
+    }
     const { error: err } = await supabase
       .from('perfil')
-      .upsert({ ...form, moneda: /^[A-Z]{3}$/.test(moneda) ? moneda : 'USD', owner_id: user?.id, updated_at: new Date().toISOString() })
+      .upsert({ ...form, moneda: /^[A-Z]{3}$/.test(moneda) ? moneda : 'USD', codigo_pais_whatsapp: codigoPais || null, owner_id: user?.id, updated_at: new Date().toISOString() })
     setGuardando(false)
     if (err) return error(err.message)
     exito('Perfil actualizado', '¡Éxito!')
@@ -94,7 +100,12 @@ export default function PerfilPage() {
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
           {campo('Moneda (código: USD, EUR, COP…)', 'moneda')}
           {campo('Meta Mensual', 'meta_mensual', 'number')}
+          {campo('Código de país para WhatsApp (ej. 58, 57, 52, 1)', 'codigo_pais_whatsapp')}
         </div>
+        <p className="text-center mb-4 text-xs">
+          El código de país completa los teléfonos de tus clientes que estén escritos en formato local
+          (por ejemplo, <b>0412-1234567</b> con código <b>58</b> se envía a <b>+58 412 1234567</b>) al usar el botón 💬 WhatsApp.
+        </p>
 
         <div className="banda bg-[#ffd700]">CONTACTO Y REDES</div>
         {([1, 2, 3] as const).map((i) => (

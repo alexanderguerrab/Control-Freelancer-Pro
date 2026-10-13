@@ -53,6 +53,19 @@ export function planCobro(registro: RegistroCobrable, hoy: string): PlanCobro | 
   }
 }
 
+/**
+ * Etapa que corresponde por días de atraso, sin mirar si ya se mandó el
+ * correo. La usa el recordatorio por WhatsApp, que es manual: aunque el
+ * correo de esa etapa ya haya salido, el usuario puede querer insistir.
+ * Sin fecha de pago o aún sin vencer, se usa la de «vence hoy».
+ */
+export function etapaPorAtraso(registro: RegistroCobrable, hoy: string): Etapa {
+  const dias = diasDesde(registro.fecha_pago, hoy)
+  if (dias === null) return ETAPAS[0]
+  const alcanzadas = ETAPAS.filter((etapa) => dias >= etapa.dias)
+  return alcanzadas[alcanzadas.length - 1] ?? ETAPAS[0]
+}
+
 export function etapaPendiente(registro: RegistroCobrable, hoy: string): Etapa | null {
   return planCobro(registro, hoy)?.etapa ?? null
 }

@@ -107,4 +107,5 @@ body {
   .btn-eliminar { @apply bg-red-500 hover:bg-red-600; }
   .btn-precio { @apply bg-[#f39c12] hover:bg-[#d68910]; }
   .btn-renovar { @apply bg-[#27ae60] hover:bg-[#219653]; }
+  .btn-whatsapp { @apply bg-[#25d366] hover:bg-[#1ebe5b] disabled:opacity-40 disabled:cursor-not-allowed; }
 }

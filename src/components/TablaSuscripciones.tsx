@@ -4,7 +4,8 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTabla } from '@/lib/useTabla'
 import { useMetodosPago } from '@/lib/useMetodosPago'
-import { confirmar, exito, pedirNumero } from '@/lib/alertas'
+import { useWhatsApp } from '@/lib/whatsapp'
+import { aviso, confirmar, exito, pedirNumero } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
 import { fechaPagoDeCiclo, hoyISO, siguienteCiclo, TIPOS_SUSCRIPCION, type TipoSuscripcion } from '@/lib/fechas'
 import type { TipoCobro } from '@/lib/cobros'
@@ -40,12 +41,13 @@ const COLUMNAS_FIJAS = ['Tipo de Suscripción', 'Monto', 'Cobrado', 'Método de 
 
 export default function TablaSuscripciones({ config, personas }: {
   config: ConfigTabla
-  personas: { id: string; nombre: string }[]
+  personas: { id: string; nombre: string; telefono?: string | null }[]
 }) {
   const { filas, cargar, actualizar, insertar, eliminar } = useTabla<Suscripcion>(config.tabla, 'created_at', false)
   const [hoy] = useState(hoyISO)
   const metodos = useMetodosPago()
   const router = useRouter()
+  const whatsapp = useWhatsApp()
   const [versionNueva, setVersionNueva] = useState(0)
   // Lo que se va escribiendo en la fila en blanco. El registro se crea cuando
   // ya tiene nombre, así no aparecen filas vacías ni duplicadas por ediciones rápidas.
@@ -126,6 +128,17 @@ export default function TablaSuscripciones({ config, personas }: {
     if (await confirmar('¿Eliminar registro?', 'Esta fila será borrada del sistema.')) await eliminar(fila.id)
   }
 
+  function recordarWhatsApp(fila: Suscripcion) {
+    const persona = personas.find((p) => p.id === fila[config.campoPersona])
+    if (!persona) return void aviso('Elige primero el cliente de esta fila.')
+    whatsapp.enviar({
+      nombre: persona.nombre,
+      telefono: persona.telefono,
+      concepto: String(fila[config.campoNombre] ?? ''),
+      registro: fila,
+    })
+  }
+
   async function cobrar() {
     if (await ejecutarCobro(config.tipoCobro, router.push)) await cargar()
   }
@@ -166,6 +179,8 @@ export default function TablaSuscripciones({ config, personas }: {
         <td>
           {acciones && (
             <div className="flex gap-1.5 justify-center">
+              <button onClick={() => recordarWhatsApp(fila)} disabled={fila.cobrado} className="btn-icono btn-whatsapp"
+                title={fila.cobrado ? 'Este registro ya está cobrado' : 'Enviar recordatorio por WhatsApp'}>💬 WhatsApp</button>
               <button onClick={() => renovar(fila)} className="btn-icono btn-renovar" title={fila.tipo_suscripcion === 'Anual' ? 'Renovar por un año' : 'Renovar por 30 días (mes siguiente)'}>🔄 Renovar</button>
               <button onClick={() => renovarConPrecio(fila)} className="btn-icono btn-precio" title="Nuevo precio / siguiente periodo">💵 Precio</button>
               <button onClick={() => borrar(fila)} className="btn-icono btn-eliminar" title="Eliminar Registro">🗑️ Borrar</button>
@@ -189,7 +204,7 @@ export default function TablaSuscripciones({ config, personas }: {
         <button onClick={cobrar} className="btn-cobro">{config.textoBotonCobro}</button>
       </div>
       <div className="tabla-contenedor">
-        <table className="tabla min-w-[1700px]">
+        <table className="tabla min-w-[1850px]">
           <thead>
             <tr>{columnas.map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>

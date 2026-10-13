@@ -2,10 +2,12 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { abrirSoporteEmail, WHATSAPP_SOPORTE } from '@/lib/alertas'
+import { abrirSoporteEmail } from '@/lib/alertas'
+import { useSoporte } from '@/lib/soporte'
 
 export default function AccesoRestringido({ estado }: { estado: string }) {
   const router = useRouter()
+  const { whatsappUrl } = useSoporte()
 
   async function salir() {
     await createClient().auth.signOut()
@@ -23,7 +25,7 @@ export default function AccesoRestringido({ estado }: { estado: string }) {
           al administrador para que autorice tu acceso.
         </p>
         <div className="flex gap-2.5 mb-3">
-          <a href={WHATSAPP_SOPORTE} target="_blank" rel="noopener noreferrer"
+          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
             className="flex-1 text-login-green border border-login-green py-2.5 rounded-lg text-sm font-semibold hover:bg-login-green/10 transition-colors">
             📱 WhatsApp
           </a>

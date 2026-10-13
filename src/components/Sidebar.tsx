@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { abrirSoporteEmail, WHATSAPP_SOPORTE } from '@/lib/alertas'
+import { abrirSoporteEmail } from '@/lib/alertas'
+import { useSoporte } from '@/lib/soporte'
 
 interface ItemMenu {
   label: string
@@ -21,6 +22,7 @@ const itemsAdmin: ItemMenu[] = [
   { label: '👩‍💻 Gestión Usuarios Admin', path: '/dashboard/admin/usuarios' },
   { label: '🛠️ Control Suscripciones Admin', path: '/dashboard/admin/control' },
   { label: '📊 Reporte Financiero Admin', path: '/dashboard/admin/reporte' },
+  { label: '⚙️ Configuración Admin', path: '/dashboard/admin/configuracion' },
 ]
 
 const itemsUsuario: ItemMenu[] = [
@@ -52,6 +54,7 @@ function Categoria({ children }: { children: React.ReactNode }) {
 export default function Sidebar({ esAdmin, logoUrl }: { esAdmin: boolean; logoUrl: string | null }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { whatsappUrl } = useSoporte()
 
   function esActivo(path: string) {
     return path === '/dashboard' ? pathname === path : pathname.startsWith(path)
@@ -103,7 +106,7 @@ export default function Sidebar({ esAdmin, logoUrl }: { esAdmin: boolean; logoUr
       {renderItems(itemsUsuario)}
 
       <Categoria>Soporte y Ayuda</Categoria>
-      <a href={WHATSAPP_SOPORTE} target="_blank" rel="noopener noreferrer" className={`${claseItem} ${claseInactivo}`}>
+      <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className={`${claseItem} ${claseInactivo}`}>
         📱 Soporte WhatsApp
       </a>
       <button onClick={abrirSoporteEmail} className={`${claseItem} ${claseInactivo}`}>

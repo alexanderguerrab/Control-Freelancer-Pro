@@ -1,6 +1,7 @@
 'use client'
 
 import Swal from 'sweetalert2'
+import { cargarSoporte } from './soporte'
 
 /** Diálogos con SweetAlert2, igual que en la versión legacy. */
 
@@ -62,13 +63,15 @@ export function cerrar() {
   Swal.close()
 }
 
-const EMAIL_SOPORTE = 'alexanderguerra1129@gmail.com'
-export const WHATSAPP_SOPORTE = 'https://wa.me/584124231008'
+const escaparHtml = (t: string) =>
+  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+/** El correo de soporte se configura en «Configuración Admin» (tabla config_app). */
 export async function abrirSoporteEmail() {
+  const { email: EMAIL_SOPORTE } = await cargarSoporte()
   const r = await Swal.fire({
     title: '✉️ Soporte por Correo',
-    html: `Puedes escribirnos directamente a:<br><strong style="color:#00BFFF; font-size:18px;">${EMAIL_SOPORTE}</strong>`,
+    html: `Puedes escribirnos directamente a:<br><strong style="color:#00BFFF; font-size:18px;">${escaparHtml(EMAIL_SOPORTE)}</strong>`,
     background: '#151A23',
     color: '#FFF',
     showCloseButton: true,
@@ -85,7 +88,7 @@ export async function abrirSoporteEmail() {
   if (r.isConfirmed) {
     window.location.href = `mailto:${EMAIL_SOPORTE}?subject=${asunto}`
   } else if (r.isDenied) {
-    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${EMAIL_SOPORTE}&su=${asunto}`, '_blank')
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL_SOPORTE)}&su=${asunto}`, '_blank')
   } else if (r.dismiss === Swal.DismissReason.cancel) {
     await navigator.clipboard.writeText(EMAIL_SOPORTE)
     Swal.fire({

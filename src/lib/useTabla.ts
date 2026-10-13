@@ -78,15 +78,21 @@ export function useTabla<T extends Fila>(tabla: string, orden = 'created_at', as
   return { filas, cargar, actualizar, insertar, eliminar }
 }
 
-/** Lista {id, nombre} para los desplegables de cliente. */
+export interface OpcionCliente {
+  id: string
+  nombre: string
+  telefono: string | null
+}
+
+/** Lista {id, nombre, telefono} para los desplegables de cliente (el teléfono sirve para el recordatorio por WhatsApp). */
 export function useOpcionesClientes() {
-  const [opciones, setOpciones] = useState<{ id: string; nombre: string }[]>([])
+  const [opciones, setOpciones] = useState<OpcionCliente[]>([])
 
   useEffect(() => {
     let activo = true
     createClient()
       .from('clientes')
-      .select('id, nombre')
+      .select('id, nombre, telefono')
       .order('nombre')
       .then(({ data }) => {
         if (activo) setOpciones(data ?? [])

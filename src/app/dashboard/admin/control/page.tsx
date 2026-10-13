@@ -5,17 +5,17 @@ import { createClient } from '@/utils/supabase/client'
 import TablaSuscripciones from '@/components/TablaSuscripciones'
 
 export default function ControlSaaSPage() {
-  const [usuarios, setUsuarios] = useState<{ id: string; nombre: string }[]>([])
+  const [usuarios, setUsuarios] = useState<{ id: string; nombre: string; telefono: string | null }[]>([])
 
   useEffect(() => {
     createClient()
       .from('usuarios')
-      .select('id, cliente, email')
+      .select('id, cliente, email, telefono')
       .then(({ data }) =>
         setUsuarios(
           (data ?? [])
             // Se muestra el nombre del cliente; si aún no tiene, el correo para no dejarlo en blanco.
-            .map((u) => ({ id: u.id, nombre: u.cliente?.trim() || u.email || u.id }))
+            .map((u) => ({ id: u.id, nombre: u.cliente?.trim() || u.email || u.id, telefono: u.telefono as string | null }))
             .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
         )
       )

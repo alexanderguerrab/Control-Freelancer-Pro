@@ -21,6 +21,8 @@ export interface Perfil {
   logo_url: string | null
   moneda: string | null
   meta_mensual: number
+  /** Código de país (solo dígitos) para completar teléfonos locales en el recordatorio por WhatsApp. */
+  codigo_pais_whatsapp: string | null
   red_social_1_nombre: string | null
   red_social_1_url: string | null
   red_social_2_nombre: string | null

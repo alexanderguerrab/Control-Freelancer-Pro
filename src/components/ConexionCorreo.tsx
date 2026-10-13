@@ -15,6 +15,7 @@ export default function ConexionCorreo() {
   const [conectado, setConectado] = useState<string | null | undefined>(undefined)
   const [usaSistema, setUsaSistema] = useState(false)
   const [email, setEmail] = useState('')
+  const [sugerido, setSugerido] = useState<string | null>(null)
   const [password, setPassword] = useState('')
 
   useEffect(() => {
@@ -25,6 +26,10 @@ export default function ConexionCorreo() {
         if (!activo) return
         setConectado(j.email ?? null)
         setUsaSistema(Boolean(j.sistema))
+        if (j.sugerido) {
+          setSugerido(j.sugerido)
+          setEmail((actual) => actual || j.sugerido)
+        }
       })
       .catch(() => {
         if (activo) setConectado(null)
@@ -85,11 +90,12 @@ export default function ConexionCorreo() {
         <form onSubmit={conectar}>
           {usaSistema ? (
             <p className="text-center text-xs mb-4">
-              Como administrador, tus recordatorios salen desde el correo del sistema. Puedes conectar otro Gmail si quieres.
+              Como administrador, tus recordatorios salen desde el correo del sistema (esto aplica solo a ti: los demás usuarios nunca usan este correo). Puedes conectar otro Gmail si quieres.
             </p>
           ) : (
             <p className="text-center text-sm mb-4 bg-red-50 border border-red-200 text-red-700 rounded-md p-2.5">
-              ⚠️ <b>Aún no has configurado tu correo.</b> No se enviará ningún recordatorio de cobro hasta que conectes tu Gmail.
+              ⚠️ <b>Aún no has configurado tu correo.</b> No se enviará ningún recordatorio por correo hasta que conectes tu Gmail.
+              Mientras tanto puedes usar el botón <b>💬 WhatsApp</b> de cada fila, que no necesita configuración.
             </p>
           )}
 
@@ -104,6 +110,9 @@ export default function ConexionCorreo() {
             <div>
               <label className="etiqueta">Tu correo de Gmail</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@gmail.com" className="campo" required />
+              {sugerido && email === sugerido && (
+                <p className="text-[11px] text-gray-500 -mt-2 mb-2 text-center">Es el correo con el que te registraste; cámbialo si usarás otro Gmail.</p>
+              )}
             </div>
             <div>
               <label className="etiqueta">Contraseña de aplicación</label>

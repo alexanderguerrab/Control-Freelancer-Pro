@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { abrirSoporteEmail, WHATSAPP_SOPORTE } from '@/lib/alertas'
+import { abrirSoporteEmail } from '@/lib/alertas'
+import { useSoporte } from '@/lib/soporte'
 import { primerRequisitoFallido, REQUISITOS_PASSWORD as REQUISITOS } from '@/lib/password'
 
 const claseInput = `w-full bg-bg-dark text-white border border-border-dark p-2.5 mb-3 rounded-lg text-center
@@ -25,6 +26,7 @@ function GoogleIcono() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { whatsappUrl } = useSoporte()
   const [modo, setModo] = useState<'login' | 'registro'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -175,7 +177,7 @@ export default function LoginPage() {
 
         {esLogin && (
           <div className="flex gap-2.5 mt-1">
-            <a href={WHATSAPP_SOPORTE} target="_blank" rel="noopener noreferrer"
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
               className={`${claseBoton} mb-0! flex-1 text-login-green border border-login-green hover:bg-login-green/10`}>
               📱 WhatsApp
             </a>

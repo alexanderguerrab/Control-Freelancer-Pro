@@ -3,10 +3,11 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOpcionesClientes, useTabla } from '@/lib/useTabla'
-import { confirmar } from '@/lib/alertas'
+import { aviso, confirmar } from '@/lib/alertas'
 import { ejecutarCobro } from '@/lib/ejecutarCobro'
 import { hoyISO } from '@/lib/fechas'
 import { useMetodosPago } from '@/lib/useMetodosPago'
+import { useWhatsApp } from '@/lib/whatsapp'
 import { Cargando, CeldasVencimiento, InputFechaTabla, InputMonto, InputTabla, SelectMetodo } from '@/components/ui'
 import type { EstadoProceso, Proyecto } from '@/lib/types'
 
@@ -24,13 +25,14 @@ const COLUMNAS = [
   ...ESTADOS, 'Vence Hoy', 'Vence 7 Días', 'Vence 15 Días', 'Comprobante', '',
 ]
 
-function FilaProyecto({ p, clientes, metodos, hoy, onCambio, onBorrar }: {
+function FilaProyecto({ p, clientes, metodos, hoy, onCambio, onBorrar, onWhatsApp }: {
   p: Proyecto
   clientes: { id: string; nombre: string }[]
   metodos: string[]
   hoy: string
   onCambio: (cambios: Partial<Proyecto>) => void
   onBorrar?: () => void
+  onWhatsApp?: () => void
 }) {
   return (
     <tr>
@@ -58,7 +60,13 @@ function FilaProyecto({ p, clientes, metodos, hoy, onCambio, onBorrar }: {
       {p.id ? <CeldasVencimiento registro={p} hoy={hoy} /> : <><td /><td /><td /></>}
       <td><InputTabla valor={p.comprobante_url} placeholder="URL o Comprobante..." onGuardar={(v) => onCambio({ comprobante_url: v })} /></td>
       <td>
-        {onBorrar && <button onClick={onBorrar} className="btn-icono btn-eliminar" title="Eliminar Proyecto">🗑️</button>}
+        {onBorrar && (
+          <div className="flex gap-1.5 justify-center">
+            <button onClick={onWhatsApp} disabled={p.cobrado} className="btn-icono btn-whatsapp"
+              title={p.cobrado ? 'Este proyecto ya está cobrado' : 'Enviar recordatorio por WhatsApp'}>💬 WhatsApp</button>
+            <button onClick={onBorrar} className="btn-icono btn-eliminar" title="Eliminar Proyecto">🗑️</button>
+          </div>
+        )}
       </td>
     </tr>
   )
@@ -69,6 +77,7 @@ export default function ProyectosPage() {
   const clientes = useOpcionesClientes()
   const metodos = useMetodosPago()
   const router = useRouter()
+  const whatsapp = useWhatsApp()
   const [hoy] = useState(hoyISO)
   // Cambia la key de la fila en blanco para vaciarla tras crear un proyecto.
   const [versionNueva, setVersionNueva] = useState(0)
@@ -100,6 +109,12 @@ export default function ProyectosPage() {
     if (await confirmar('¿Eliminar proyecto?', p.nombre || 'Proyecto sin nombre')) await eliminar(p.id)
   }
 
+  function recordarWhatsApp(p: Proyecto) {
+    const cliente = clientes.find((c) => c.id === p.cliente_id)
+    if (!cliente) return void aviso('Elige primero el cliente de este proyecto.')
+    whatsapp.enviar({ nombre: cliente.nombre, telefono: cliente.telefono, concepto: p.nombre, registro: p })
+  }
+
   async function cobrar() {
     if (await ejecutarCobro('proyectos', router.push)) await cargar()
   }
@@ -113,7 +128,7 @@ export default function ProyectosPage() {
           <button onClick={cobrar} className="btn-cobro">🚀 Ejecutar Cobro de Proyectos</button>
         </div>
         <div className="tabla-contenedor">
-          <table className="tabla min-w-[1550px]">
+          <table className="tabla min-w-[1700px]">
             <thead>
               <tr>{COLUMNAS.map((h, i) => <th key={i}>{h}</th>)}</tr>
             </thead>
@@ -124,7 +139,8 @@ export default function ProyectosPage() {
                 <>
                   {proyectos.map((p) => (
                     <FilaProyecto key={p.id} p={p} clientes={clientes} metodos={metodos} hoy={hoy}
-                      onCambio={(cambios) => actualizar(p.id, cambios)} onBorrar={() => borrar(p)} />
+                      onCambio={(cambios) => actualizar(p.id, cambios)} onBorrar={() => borrar(p)}
+                      onWhatsApp={() => recordarWhatsApp(p)} />
                   ))}
                   <FilaProyecto key={`nuevo-${versionNueva}`} p={{ ...PROYECTO_VACIO, ...borrador }} clientes={clientes} metodos={metodos} hoy={hoy} onCambio={cambioEnFilaNueva} />
                 </>

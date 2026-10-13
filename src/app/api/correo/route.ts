@@ -28,6 +28,7 @@ async function sesion() {
 /**
  * Dirección conectada, o null si no hay. `sistema` indica que, sin conexión
  * propia, los cobros igual salen por el correo del sistema (solo el admin).
+ * `sugerido` es el Gmail de registro del usuario, para rellenar el formulario.
  */
 export async function GET() {
   const { supabase, user } = await sesion()
@@ -36,7 +37,10 @@ export async function GET() {
     supabase.from('correo_envio').select('email').maybeSingle(),
     supabase.rpc('es_admin'),
   ])
-  return json({ email: data?.email ?? null, sistema: Boolean(esAdmin) })
+  // Si se registró con un Gmail, se sugiere como remitente para que solo tenga que pegar la contraseña de aplicación.
+  const registro = user.email?.trim().toLowerCase() ?? ''
+  const sugerido = /@(gmail|googlemail)\.com$/.test(registro) ? registro : null
+  return json({ email: data?.email ?? null, sistema: Boolean(esAdmin), sugerido })
 }
 
 export async function POST(request: Request) {
