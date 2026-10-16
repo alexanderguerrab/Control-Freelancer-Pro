@@ -102,3 +102,25 @@ export async function abrirSoporteEmail() {
     })
   }
 }
+
+/** Pregunta por dónde compartir cuando el navegador no tiene el menú nativo de compartir. */
+export async function elegirCanalCompartir(): Promise<'whatsapp' | 'copiar' | null> {
+  const r = await Swal.fire({
+    title: 'Compartir',
+    text: '¿Cómo quieres enviarlo?',
+    showCloseButton: true,
+    showCancelButton: true,
+    confirmButtonText: '💬 WhatsApp',
+    cancelButtonText: '📋 Copiar texto',
+    confirmButtonColor: '#25d366',
+    cancelButtonColor: '#334155',
+  })
+  if (r.isConfirmed) return 'whatsapp'
+  if (r.dismiss === Swal.DismissReason.cancel) return 'copiar'
+  return null
+}
+
+/** Aviso breve que se cierra solo (por ejemplo «Copiado»). */
+export function toast(mensaje: string) {
+  return Swal.fire({ title: mensaje, icon: 'success', timer: 1600, showConfirmButton: false })
+}

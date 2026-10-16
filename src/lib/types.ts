@@ -29,18 +29,19 @@ export interface Perfil {
   red_social_2_url: string | null
   red_social_3_nombre: string | null
   red_social_3_url: string | null
-  pasarela_1_nombre: string | null
-  pasarela_1_url: string | null
-  pasarela_2_nombre: string | null
-  pasarela_2_url: string | null
-  pasarela_3_nombre: string | null
-  pasarela_3_url: string | null
-  pasarela_4_nombre: string | null
-  pasarela_4_url: string | null
-  pasarela_5_nombre: string | null
-  pasarela_5_url: string | null
-  pasarela_6_nombre: string | null
-  pasarela_6_url: string | null
+}
+
+/** Método de pago de la lista de Mi Perfil (tabla metodos_pago). */
+export interface MetodoPago {
+  id: string
+  owner_id?: string
+  nombre: string
+  /** Cuenta, banco, teléfono, cédula… que se comparte con el cliente. */
+  datos: string
+  enlace: string | null
+  /** Imagen del QR como data URL (ya reducida en el navegador). */
+  qr: string | null
+  orden: number
 }
 
 export interface Cliente {

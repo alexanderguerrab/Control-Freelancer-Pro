@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { error, exito } from '@/lib/alertas'
+import MetodosPagoEditor from '@/components/MetodosPagoEditor'
 import type { Perfil } from '@/lib/types'
 
 type CampoPerfil = Exclude<keyof Perfil, 'owner_id'>
@@ -14,12 +15,6 @@ const PERFIL_VACIO: Perfil = {
   red_social_1_nombre: '', red_social_1_url: '',
   red_social_2_nombre: '', red_social_2_url: '',
   red_social_3_nombre: '', red_social_3_url: '',
-  pasarela_1_nombre: '', pasarela_1_url: '',
-  pasarela_2_nombre: '', pasarela_2_url: '',
-  pasarela_3_nombre: '', pasarela_3_url: '',
-  pasarela_4_nombre: '', pasarela_4_url: '',
-  pasarela_5_nombre: '', pasarela_5_url: '',
-  pasarela_6_nombre: '', pasarela_6_url: '',
 }
 
 // Definido fuera de la página: si se crea dentro, React lo remonta en cada
@@ -115,23 +110,13 @@ export default function PerfilPage() {
           </div>
         ))}
 
-        <div className="banda bg-[#98fb98]">MÉTODOS DE PAGO / PASARELAS</div>
-        <p className="text-center mb-4 text-xs">
-          Escribe los métodos con los que cobras (por ejemplo <b>Pesos Colombianos</b>, <b>Nequi</b>, <b>Zelle</b>).
-          Aparecerán en el menú «Método de Pago» de Finanzas, Cursos y Suscripciones. El enlace es opcional.
-          Si dejas todos vacíos se usa una lista por defecto.
-        </p>
-        {([1, 2, 3, 4, 5, 6] as const).map((i) => (
-          <div key={i} className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-0">
-            {campo(`Método de pago ${i}`, `pasarela_${i}_nombre`)}
-            {campo(`Enlace ${i}`, `pasarela_${i}_url`)}
-          </div>
-        ))}
-
         <button type="submit" disabled={guardando} className="btn-principal">
           {guardando ? '⏳ Guardando...' : 'GUARDAR TODOS LOS CAMBIOS'}
         </button>
       </form>
+
+      {/* Fuera del formulario: tiene su propio botón de guardar. */}
+      <MetodosPagoEditor />
     </div>
   )
 }

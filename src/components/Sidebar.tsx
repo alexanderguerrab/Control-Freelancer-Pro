@@ -15,6 +15,7 @@ const itemsPrincipales: ItemMenu[] = [
   { label: '🏠 Panel de Inicio', path: '/dashboard' },
   { label: '🚀 Mi Perfil', path: '/dashboard/perfil' },
   { label: '💳 Mi Suscripción', path: '/dashboard/suscripcion' },
+  { label: '💾 Respaldo de Datos', path: '/dashboard/respaldo' },
 ]
 
 const itemsAdmin: ItemMenu[] = [
