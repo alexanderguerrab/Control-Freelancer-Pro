@@ -60,6 +60,8 @@ export default function MetodosPagoEditor() {
   const [cargado, setCargado] = useState(false)
   const [falloCarga, setFalloCarga] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
+  // Ids de las tarjetas desplegadas; por defecto todas van plegadas para que la lista sea corta.
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let activo = true
@@ -82,7 +84,10 @@ export default function MetodosPagoEditor() {
           qr: f.qr ? String(f.qr) : null,
         }))
         setGuardados(normalizar(filas))
-        setLista(filas.length ? filas : [vacio()])
+        const inicial = filas.length ? filas : [vacio()]
+        setLista(inicial)
+        // Sin métodos guardados se muestra la tarjeta vacía ya desplegada para empezar a escribir.
+        if (!filas.length) setAbiertos(new Set([inicial[0].id]))
         setCargado(true)
       })
     return () => {
@@ -110,9 +115,19 @@ export default function MetodosPagoEditor() {
     setLista((prev) => prev.map((b) => (b.id === id ? { ...b, [campo]: valor } : b)))
   }
 
+  function alternar(id: string) {
+    setAbiertos((prev) => {
+      const siguiente = new Set(prev)
+      if (!siguiente.delete(id)) siguiente.add(id)
+      return siguiente
+    })
+  }
+
   function agregar() {
     if (lista.length >= MAX_METODOS) return aviso(`Puedes tener hasta ${MAX_METODOS} métodos de pago.`)
-    setLista((prev) => [...prev, vacio()])
+    const nuevo = vacio()
+    setLista((prev) => [...prev, nuevo])
+    setAbiertos((prev) => new Set(prev).add(nuevo.id)) // el método nuevo se abre solo
   }
 
   async function eliminar(b: Borrador) {
@@ -249,7 +264,9 @@ export default function MetodosPagoEditor() {
         enlace: String(f.enlace ?? ''), qr: f.qr ? String(f.qr) : null,
       }))
       setGuardados(normalizar(guardadosAhora))
-      setLista(guardadosAhora.length ? guardadosAhora : [vacio()])
+      const tras = guardadosAhora.length ? guardadosAhora : [vacio()]
+      setLista(tras)
+      if (!guardadosAhora.length) setAbiertos(new Set([tras[0].id]))
     }
 
     if (fallosRenombre) {
@@ -292,17 +309,27 @@ export default function MetodosPagoEditor() {
             </div>
           )}
 
-          {lista.map((b, i) => (
+          {lista.map((b, i) => {
+            const abierto = abiertos.has(b.id)
+            return (
             <div key={b.id}
               className="mb-4 rounded-2xl border border-[#312e81] bg-gradient-to-b from-[#1e2050] to-[#141636] p-5 max-md:p-3">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-extrabold uppercase tracking-wide text-indigo-400">Método {i + 1}</h3>
+              <div className={`flex items-center justify-between gap-2 ${abierto ? 'mb-3' : ''}`}>
+                <button type="button" onClick={() => alternar(b.id)} aria-expanded={abierto}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                  <span className="text-xs text-indigo-400">{abierto ? '▼' : '▶'}</span>
+                  <span className="shrink-0 text-sm font-extrabold uppercase tracking-wide text-indigo-400">Método {i + 1}</span>
+                  {b.nombre.trim() && <span className="truncate text-sm font-semibold text-white">· {b.nombre.trim()}</span>}
+                  {b.qr && <span title="Tiene código QR" className="shrink-0 text-xs">🔳</span>}
+                </button>
                 <button type="button" onClick={() => eliminar(b)}
-                  className="cursor-pointer rounded-md bg-[#dc2626] px-3 py-1.5 text-xs font-bold text-white hover:opacity-85">
+                  className="shrink-0 cursor-pointer rounded-md bg-[#dc2626] px-3 py-1.5 text-xs font-bold text-white hover:opacity-85">
                   🗑️ Eliminar
                 </button>
               </div>
 
+              {abierto && (
+              <>
               <label className={claseEtiqueta} htmlFor={`mp-nombre-${b.id}`}>Nombre del método</label>
               <input id={`mp-nombre-${b.id}`} type="text" value={b.nombre} maxLength={MAX_NOMBRE}
                 onChange={(e) => cambiar(b.id, 'nombre', e.target.value)}
@@ -351,8 +378,11 @@ export default function MetodosPagoEditor() {
                 <button type="button" onClick={() => compartir(b)} className={`${claseBoton} bg-[#16a34a]`}>📤 Compartir</button>
                 <button type="button" onClick={() => copiarDatos(b)} className={`${claseBoton} bg-[#334155]`}>📋 Copiar datos</button>
               </div>
+              </>
+              )}
             </div>
-          ))}
+            )
+          })}
 
           <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <button type="button" onClick={agregar} className={`${claseBoton} bg-[#4f46e5] py-3.5`}>➕ Agregar método de pago</button>
