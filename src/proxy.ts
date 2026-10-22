@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const RUTAS_PUBLICAS = ['/login', '/auth', '/api']
+const RUTAS_PUBLICAS = ['/login', '/auth', '/api', '/terminos', '/privacidad']
 
 // Coincidencia por segmento: '/api' y '/api/x' sí; '/apifoo' no.
 const coincide = (pathname: string, ruta: string) => pathname === ruta || pathname.startsWith(`${ruta}/`)

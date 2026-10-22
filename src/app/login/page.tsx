@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { abrirSoporteEmail } from '@/lib/alertas'
 import { useSoporte } from '@/lib/soporte'
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [acepto, setAcepto] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState<{ tipo: 'error' | 'ok'; texto: string } | null>(null)
 
@@ -52,6 +54,10 @@ export default function LoginPage() {
   }
 
   async function registrarse() {
+    if (!acepto) {
+      setMensaje({ tipo: 'error', texto: 'Para crear tu cuenta debes aceptar los Términos y condiciones y la Política de privacidad.' })
+      return
+    }
     const fallido = primerRequisitoFallido(password)
     if (fallido) {
       setMensaje({ tipo: 'error', texto: `La contraseña no cumple: ${fallido.texto.toLowerCase()}` })
@@ -153,6 +159,13 @@ export default function LoginPage() {
             <>
               <label className={claseEtiqueta}>Teléfono (con cód. de área)</label>
               <input type="text" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+1234567890" className={claseInput} />
+              <label className="flex items-start gap-2 text-left text-[12px] text-text-muted mb-3 leading-snug cursor-pointer">
+                <input type="checkbox" checked={acepto} onChange={(e) => setAcepto(e.target.checked)} className="mt-0.5 shrink-0" />
+                <span>
+                  Acepto los <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="text-login-cyan underline">Términos y condiciones</Link> y la{' '}
+                  <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-login-cyan underline">Política de privacidad</Link>.
+                </span>
+              </label>
             </>
           )}
 
@@ -187,6 +200,16 @@ export default function LoginPage() {
             </button>
           </div>
         )}
+
+        <p className="text-text-muted text-[13px] mt-5 leading-relaxed">
+          Al continuar aceptas los:
+          <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="block mt-1.5 text-login-cyan underline hover:text-login-green">
+            1. Términos y condiciones
+          </Link>
+          <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="block mt-1 text-login-cyan underline hover:text-login-green">
+            2. Políticas de privacidad
+          </Link>
+        </p>
       </div>
     </div>
   )

@@ -113,6 +113,12 @@ export default function Sidebar({ esAdmin, logoUrl }: { esAdmin: boolean; logoUr
       <button onClick={abrirSoporteEmail} className={`${claseItem} ${claseInactivo}`}>
         ✉️ Soporte Email
       </button>
+      <Link href="/terminos" target="_blank" rel="noopener noreferrer" className={`${claseItem} ${claseInactivo}`}>
+        📜 Términos y Condiciones
+      </Link>
+      <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className={`${claseItem} ${claseInactivo}`}>
+        🔒 Política de Privacidad
+      </Link>
 
       <button onClick={cerrarSesion}
         className={`${claseItem} text-danger border-t border-t-white/10 border-l-transparent hover:border-l-danger mt-auto
