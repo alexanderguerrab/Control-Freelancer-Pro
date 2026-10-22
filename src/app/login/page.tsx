@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client'
 import { abrirSoporteEmail } from '@/lib/alertas'
 import { useSoporte } from '@/lib/soporte'
 import { primerRequisitoFallido, REQUISITOS_PASSWORD as REQUISITOS } from '@/lib/password'
+import { VideoFondo } from '@/components/VideoFondo'
 
 const claseInput = `w-full bg-bg-dark text-white border border-border-dark p-2.5 mb-3 rounded-lg text-center
   text-[15px] outline-none focus:border-login-cyan transition-colors`
@@ -121,13 +122,10 @@ export default function LoginPage() {
   )
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover pointer-events-none">
-        <source src="/video-animado.mp4" type="video/mp4" />
-      </video>
-      <div className="absolute inset-0 bg-black/85" />
+    <div className="login-pantalla">
+      <VideoFondo />
 
-      <div className="relative z-10 w-[380px] max-w-[95%] bg-bg-card-dark border border-border-dark rounded-2xl p-8 text-center shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+      <div className="login-caja relative z-10 w-[380px] max-w-[95%] bg-bg-card-dark border border-border-dark rounded-2xl p-8 max-md:p-5 text-center shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
         <h2 className="text-login-cyan text-[22px] font-bold mb-1">
           {esLogin ? '🔐 ACCESO FREELANCER CONTROL PRO' : 'Crear Cuenta Nueva'}
         </h2>

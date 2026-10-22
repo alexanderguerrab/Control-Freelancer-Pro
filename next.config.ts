@@ -12,7 +12,17 @@ const cabecerasSeguridad = [
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/:path*", headers: cabecerasSeguridad }];
+    return [
+      { source: "/:path*", headers: cabecerasSeguridad },
+      // El service worker nunca debe quedar cacheado: así las actualizaciones llegan.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "text/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+    ];
   },
 };
 

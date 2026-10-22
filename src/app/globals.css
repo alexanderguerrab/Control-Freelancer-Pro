@@ -109,3 +109,83 @@ body {
   .btn-renovar { @apply bg-[#27ae60] hover:bg-[#219653]; }
   .btn-whatsapp { @apply bg-[#25d366] hover:bg-[#1ebe5b] disabled:opacity-40 disabled:cursor-not-allowed; }
 }
+
+/* ===== Login con video de fondo (mismo formato que Ayudante Integral y Trading Journal) =====
+   Escritorio y celular acostado: video a pantalla completa, recortado al centro.
+   Celular vertical: el video se ve COMPLETO arriba (16:9) y una copia difuminada rellena el fondo.
+   Si el video cambia de formato, ajusta 56.25vw (= alto de un video 16:9 a todo el ancho). */
+.login-pantalla {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #0D1117;
+}
+
+/* margin:auto centra el panel y, si es más alto que la pantalla, deja que se pueda desplazar */
+.login-caja {
+  margin: auto;
+}
+
+.login-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.login-velo {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.login-video-blur {
+  display: none;
+}
+
+@media (max-width: 820px) and (orientation: portrait) {
+  .login-video-blur {
+    display: block;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(22px) brightness(0.55);
+    transform: scale(1.15);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .login-velo {
+    background: radial-gradient(circle at 50% 45%, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.9) 85%);
+  }
+
+  .login-video {
+    inset: auto;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    z-index: 2;
+    -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+  }
+
+  /* El panel empieza justo debajo del video */
+  .login-caja {
+    margin: calc(56.25vw * 0.86 + 8px) auto 24px;
+  }
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a2a3a">
+  <title>Sin conexión · Freelancer Pro</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px;
+      background: #0D1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; text-align: center; }
+    .caja { max-width: 380px; width: 100%; background: #151A23; border: 1px solid #303645; border-radius: 16px; padding: 32px 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .6); }
+    .icono { font-size: 44px; margin-bottom: 8px; }
+    h1 { margin: 0 0 8px; font-size: 20px; color: #00bfff; }
+    p { margin: 0 0 20px; font-size: 14px; line-height: 1.5; color: #8B98A5; }
+    button { width: 100%; padding: 13px; border: 0; border-radius: 8px; background: #00bfff; color: #000; font-weight: 700; font-size: 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="caja">
+    <div class="icono">📡</div>
+    <h1>Sin conexión</h1>
+    <p>No se pudo conectar con Freelancer Pro. Tus datos están a salvo en el servidor. Revisa tu internet e inténtalo de nuevo.</p>
+    <button type="button" onclick="location.reload()">Reintentar</button>
+  </div>
+  <script>
+    // Si vuelve la conexión mientras esta pantalla está abierta, entra solo
+    window.addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

@@ -2,9 +2,11 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: '/',
     name: 'Dashboard Freelancer Pro',
     short_name: 'Freelancer Pro',
-    description: 'Dashboard Freelancer Pro',
+    description: 'Panel para freelancers: clientes, proyectos, cursos, cobros y reportes.',
+    lang: 'es',
     start_url: '/',
     scope: '/',
     display: 'standalone',
